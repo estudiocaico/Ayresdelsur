@@ -63,7 +63,7 @@ export default function AdminLayout({ children }) {
           <img
             src="/logo.png"
             alt="Ayres del Sur"
-            className="h-8 w-auto"
+            className="h-8 w-auto self-start object-contain"
             style={{ filter: 'brightness(0) invert(1)' }}
           />
           <p className="text-[0.65rem] uppercase tracking-widest opacity-40">Panel Admin</p>

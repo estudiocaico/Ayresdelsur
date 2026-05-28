@@ -62,9 +62,12 @@ function buildFullOrdersHTML(orders, vendedorNombre) {
     return `
       <div class="order-page">
         <div class="header">
-          <div>
-            <div class="logo">🌿 Ayres del Sur</div>
-            <div class="sub">Distribuidora de Alimentos</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <img src="${window.location.origin}/logo-circular.png" style="height:64px;width:auto" alt="Ayres del Sur" />
+            <div>
+              <div class="sub" style="margin-top:2px">Distribuidora Mayorista</div>
+              <div class="sub">San Miguel del Monte</div>
+            </div>
           </div>
           <div style="text-align:right">
             <div style="font-size:12px;font-weight:700;color:#555">PREPEDIDO</div>
@@ -170,8 +173,13 @@ function buildRouteSheetHTML(orders, vendedorNombre) {
   .footer { margin-top: 20px; font-size: 10px; color: #aaa; border-top: 1px solid #eee; padding-top: 8px; }
 </style>
 </head><body>
-  <h1>🌿 Ayres del Sur</h1>
-  <div class="sub">Hoja de Ruta — ${fecha}</div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+    <img src="${window.location.origin}/logo-circular.png" style="height:72px;width:auto" alt="Ayres del Sur" />
+    <div>
+      <h1 style="margin:0 0 2px">Hoja de Ruta</h1>
+      <div class="sub">${fecha} · Distribuidora Mayorista Ayres del Sur</div>
+    </div>
+  </div>
   <div class="vendedor">
     Vendedor: ${vendedorNombre} &nbsp;·&nbsp; ${orders.length} cliente${orders.length !== 1 ? 's' : ''} con prepedido
   </div>
