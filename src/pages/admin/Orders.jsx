@@ -243,12 +243,15 @@ export default function AdminOrders() {
   const location  = useLocation()
   const [orders, setOrders]                 = useState([])
   const [vendedores, setVendedores]         = useState([])
+  const today = new Date().toISOString().split('T')[0]
+
   const [loading, setLoading]               = useState(true)
+  const [refreshKey, setRefreshKey]         = useState(0)
   const [estado, setEstado]                 = useState(location.state?.estado ?? 'Todos')
   const [vendedorFilter, setVendedorFilter] = useState(location.state?.vendedorFilter ?? 'Todos')
   const [search, setSearch]                 = useState('')
-  const [fechaDesde, setFechaDesde]         = useState('')
-  const [fechaHasta, setFechaHasta]         = useState('')
+  const [fechaDesde, setFechaDesde]         = useState(today)
+  const [fechaHasta, setFechaHasta]         = useState(today)
   const [printing, setPrinting]             = useState(false)
 
   useEffect(() => {
@@ -261,6 +264,17 @@ export default function AdminOrders() {
       setVendedores(data ?? [])
     }
     loadVendedores()
+  }, [])
+
+  // Suscripción realtime: si un cliente cancela un pedido, el admin lo ve al instante
+  useEffect(() => {
+    const channel = supabase
+      .channel('prepedidos-admin-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prepedidos' }, () => {
+        setRefreshKey(k => k + 1)
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
   }, [])
 
   useEffect(() => {
@@ -280,7 +294,7 @@ export default function AdminOrders() {
       setLoading(false)
     }
     load()
-  }, [estado, vendedorFilter])
+  }, [estado, vendedorFilter, refreshKey])
 
   const filtered = orders.filter(o => {
     if (search &&
@@ -310,7 +324,6 @@ export default function AdminOrders() {
   }
 
   async function handlePrintOrders() {
-    if (!selectedVendedor) return
     const ids = filtered.map(o => o.id)
     if (!ids.length) return
     setPrinting(true)
@@ -329,14 +342,13 @@ export default function AdminOrders() {
       .order('created_at', { ascending: false })
 
     if (data?.length) {
-      printWindow(buildFullOrdersHTML(data, selectedVendedor.nombre))
+      printWindow(buildFullOrdersHTML(data, vendedorLabel))
     }
     setPrinting(false)
   }
 
   function handlePrintRouteSheet() {
-    if (!selectedVendedor) return
-    printWindow(buildRouteSheetHTML(filtered, selectedVendedor.nombre))
+    printWindow(buildRouteSheetHTML(filtered, vendedorLabel))
   }
 
   function handleExportExcel() {
@@ -361,6 +373,8 @@ export default function AdminOrders() {
   }
 
   const selectedVendedor = vendedores.find(v => v.id === vendedorFilter)
+  const vendedorLabel    = selectedVendedor?.nombre
+    ?? (vendedorFilter === 'sin_asignar' ? 'Sin asignar' : 'Todos los vendedores')
 
   return (
     <AdminLayout>
@@ -419,7 +433,7 @@ export default function AdminOrders() {
           />
         </div>
 
-        {selectedVendedor && (
+        {filtered.length > 0 && (
           <>
             <Button variant="outline" size="sm" onClick={handlePrintRouteSheet} className="gap-1.5 text-xs">
               <Map size={13} /> Hoja de ruta
