@@ -43,53 +43,53 @@ function buildFullOrdersHTML(orders, vendedorNombre) {
   const fecha = new Date().toLocaleDateString('es-AR')
 
   const ordersHTML = orders.map(p => {
-    const cliente = p.clientes
-    const items   = p.items_prepedido ?? []
+    const cliente   = p.clientes
+    const items     = p.items_prepedido ?? []
     const itemsRows = items.map(item => `
       <tr>
-        <td>${esc(item.productos?.codigo_interno)}</td>
+        <td class="muted">${esc(item.productos?.codigo_interno)}</td>
         <td>
           <strong>${esc(item.productos?.nombre)}</strong>
-          ${item.variantes_producto?.valor ? `<br><span style="font-size:10px;color:#888">${esc(item.variantes_producto.valor)}</span>` : ''}
+          ${item.variantes_producto?.valor ? `<br><span class="muted" style="font-size:10px">${esc(item.variantes_producto.valor)}</span>` : ''}
         </td>
-        <td>${esc(item.productos?.unidad)}</td>
-        <td style="text-align:right">${esc(item.cantidad)}</td>
+        <td class="muted">${esc(item.productos?.unidad)}</td>
+        <td style="text-align:right;font-weight:700">${esc(item.cantidad)}</td>
         <td style="text-align:right">${formatPrice(item.precio_unitario)}</td>
-        <td style="text-align:right"><strong>${formatPrice(item.subtotal)}</strong></td>
+        <td style="text-align:right;font-weight:700;color:#E8A020">${formatPrice(item.subtotal)}</td>
       </tr>
     `).join('')
 
     return `
       <div class="order-page">
-        <div class="header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <img src="${window.location.origin}/logo-circular.png" style="height:64px;width:auto" alt="Ayres del Sur" />
+        <div class="page-header">
+          <div style="display:flex;align-items:center;gap:12px">
+            <img src="${window.location.origin}/logo-circular.png" style="height:60px;width:auto" alt="Ayres del Sur" />
             <div>
-              <div class="sub" style="margin-top:2px">Distribuidora Mayorista</div>
-              <div class="sub">San Miguel del Monte</div>
+              <div class="muted" style="font-size:11px;font-weight:600">DISTRIBUIDORA MAYORISTA</div>
+              <div class="muted" style="font-size:11px">San Miguel del Monte</div>
             </div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:12px;font-weight:700;color:#555">PREPEDIDO</div>
-            <div style="font-size:20px;font-weight:800;color:#2E7D32">${esc(p.numero_referencia)}</div>
-            <div style="font-size:11px;color:#888">${new Date(p.created_at).toLocaleDateString('es-AR')}</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:#767676">PREPEDIDO</div>
+            <div style="font-size:22px;font-weight:800;color:#1A1A1A;letter-spacing:-0.02em">${esc(p.numero_referencia)}</div>
+            <div class="muted" style="font-size:11px">${new Date(p.created_at).toLocaleDateString('es-AR')}</div>
           </div>
         </div>
 
-        <div class="vendedor-tag">Vendedor: <strong>${esc(vendedorNombre)}</strong></div>
+        <div class="vendedor-pill">Vendedor: ${esc(vendedorNombre)}</div>
 
         <div class="client-grid">
           <div>
             <div class="label">Cliente</div>
             <div style="font-weight:700;font-size:14px">${esc(cliente?.nombre_negocio)}</div>
             ${cliente?.razon_social ? `<div style="font-size:12px">${esc(cliente.razon_social)}</div>` : ''}
-            ${cliente?.cuit ? `<div style="font-size:11px;color:#888">CUIT: ${esc(cliente.cuit)}</div>` : ''}
+            ${cliente?.cuit ? `<div class="muted" style="font-size:11px">CUIT: ${esc(cliente.cuit)}</div>` : ''}
           </div>
           <div>
             <div class="label">Contacto</div>
             ${cliente?.direccion ? `<div style="font-size:12px">📍 ${esc(cliente.direccion)}</div>` : ''}
             ${cliente?.telefono  ? `<div style="font-size:12px">📞 ${esc(cliente.telefono)}</div>`  : ''}
-            ${p.fecha_visita     ? `<div style="font-size:12px;color:#1B5E20;font-weight:700">📅 Visita: ${new Date(p.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR')}</div>` : ''}
+            ${p.fecha_visita     ? `<div style="font-size:12px;font-weight:700;color:#E8A020">📅 Visita: ${new Date(p.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR')}</div>` : ''}
           </div>
         </div>
 
@@ -98,45 +98,46 @@ function buildFullOrdersHTML(orders, vendedorNombre) {
             <tr>
               <th>Código</th><th>Producto</th><th>Unid.</th>
               <th style="text-align:right">Cant.</th>
-              <th style="text-align:right">Precio</th>
+              <th style="text-align:right">Precio unit.</th>
               <th style="text-align:right">Subtotal</th>
             </tr>
           </thead>
           <tbody>${itemsRows}</tbody>
           <tfoot>
             <tr>
-              <td colspan="5" style="text-align:right;font-weight:700;padding:10px 8px">TOTAL ESTIMADO</td>
-              <td style="text-align:right;font-weight:800;font-size:15px;color:#2E7D32;padding:10px 8px">${formatPrice(p.total)}</td>
+              <td colspan="5" style="text-align:right">TOTAL ESTIMADO</td>
+              <td style="text-align:right;color:#E8A020;font-size:15px">${formatPrice(p.total)}</td>
             </tr>
           </tfoot>
         </table>
 
-        <div class="footer">
-          Ayres del Sur — Este documento es un prepedido sujeto a confirmación. | ${fecha}
-        </div>
+        <div class="footer">Ayres del Sur — Distribuidora Mayorista · Prepedido sujeto a confirmación · ${fecha}</div>
       </div>
     `
   }).join('')
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <title>Prepedidos — ${vendedorNombre}</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #222; }
-  .order-page { padding: 28px 36px; page-break-after: always; }
-  .order-page:last-child { page-break-after: auto; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-  .logo { font-size: 18px; font-weight: 800; }
-  .sub  { font-size: 11px; color: #888; }
-  .vendedor-tag { display: inline-block; background: #e8f5e9; color: #1B5E20; padding: 3px 12px; border-radius: 20px; font-size: 12px; margin-bottom: 12px; }
-  .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f7f7f7; padding: 12px; border-radius: 6px; margin-bottom: 14px; }
-  .label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #888; margin-bottom: 3px; }
+  * { box-sizing: border-box; }
+  body { font-family: 'DM Sans', Arial, sans-serif; margin: 0; padding: 0; color: #1A1A1A; background: #fff; }
+  .order-page { padding: 28px 36px; page-break-after: always; border-bottom: 3px solid #F0EDE4; }
+  .order-page:last-child { page-break-after: auto; border-bottom: none; }
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #1A1A1A; margin-bottom: 12px; }
+  .vendedor-pill { display: inline-block; background: #E8A020; color: #1A1A1A; font-weight: 700; font-size: 12px; padding: 4px 14px; border-radius: 100px; margin-bottom: 12px; }
+  .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #FAFAF7; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; border: 1px solid #F0EDE4; }
+  .label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #767676; margin-bottom: 3px; }
+  .muted { color: #767676; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #f0f0f0; padding: 7px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-  td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-  tfoot td { background: #fafafa; }
-  .footer { margin-top: 16px; font-size: 10px; color: #aaa; border-top: 1px solid #eee; padding-top: 8px; }
-  @media print { .order-page { page-break-after: always; } }
+  th { background: #1A1A1A; color: #fff; padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  td { padding: 7px 10px; border-bottom: 1px solid #F0EDE4; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td { background: #1A1A1A; color: #fff; font-weight: 700; padding: 9px 10px; }
+  .footer { margin-top: 14px; font-size: 10px; color: #aaa; border-top: 1px solid #F0EDE4; padding-top: 8px; }
+  @media print { body { background: white; } .order-page { page-break-after: always; } }
 </style>
 </head><body>${ordersHTML}</body></html>`
 }
@@ -145,13 +146,13 @@ function buildRouteSheetHTML(orders, vendedorNombre) {
   const fecha = new Date().toLocaleDateString('es-AR')
   const rows = orders.map((p, i) => `
     <tr>
-      <td style="text-align:center">${i + 1}</td>
+      <td style="text-align:center;color:#767676">${i + 1}</td>
       <td><strong>${esc(p.clientes?.nombre_negocio)}</strong></td>
-      <td>${esc(p.clientes?.direccion)}</td>
-      <td>${esc(p.numero_referencia)}</td>
-      <td>${p.fecha_visita ? new Date(p.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR') : '—'}</td>
-      <td style="text-align:right"><strong>${formatPrice(p.total)}</strong></td>
-      <td style="text-align:center">☐</td>
+      <td class="muted">${esc(p.clientes?.direccion)}</td>
+      <td class="muted" style="font-size:11px">${esc(p.numero_referencia)}</td>
+      <td style="font-weight:600;color:${p.fecha_visita ? '#E8A020' : '#767676'}">${p.fecha_visita ? new Date(p.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR') : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:#E8A020">${formatPrice(p.total)}</td>
+      <td style="text-align:center;font-size:16px">☐</td>
     </tr>
   `).join('')
 
@@ -159,30 +160,58 @@ function buildRouteSheetHTML(orders, vendedorNombre) {
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <title>Hoja de Ruta — ${vendedorNombre}</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
-  h1 { font-size: 22px; margin: 0 0 2px; }
-  .sub { color: #888; font-size: 12px; margin-bottom: 18px; }
-  .vendedor { font-size: 16px; font-weight: 700; color: #1B5E20; margin-bottom: 18px; padding: 8px 16px; background: #e8f5e9; border-radius: 6px; display: inline-block; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
-  th { background: #1B5E20; color: white; padding: 9px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
-  td { padding: 9px 10px; border-bottom: 1px solid #ddd; }
-  tr:nth-child(even) { background: #f9f9f9; }
-  tfoot td { font-weight: 700; background: #f0f0f0; }
-  .footer { margin-top: 20px; font-size: 10px; color: #aaa; border-top: 1px solid #eee; padding-top: 8px; }
+  * { box-sizing: border-box; }
+  body { font-family: 'DM Sans', Arial, sans-serif; margin: 32px 36px; color: #1A1A1A; background: #fff; }
+  .muted { color: #767676; }
+  .page-header { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 2px solid #1A1A1A; margin-bottom: 16px; }
+  .page-header h1 { font-size: 24px; font-weight: 800; margin: 0 0 2px; letter-spacing: -0.02em; }
+  .sub { color: #767676; font-size: 12px; }
+  .vendedor-pill { display: inline-flex; align-items: center; gap: 6px; background: #E8A020; color: #1A1A1A; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 100px; margin-bottom: 16px; }
+  .summary { display: grid; grid-template-columns: repeat(3, auto); gap: 0; background: #FAFAF7; border: 1px solid #F0EDE4; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; width: fit-content; gap: 0 24px; }
+  .summary-item { display: flex; flex-direction: column; }
+  .summary-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #767676; margin-bottom: 2px; }
+  .summary-value { font-size: 15px; font-weight: 800; color: #1A1A1A; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #1A1A1A; color: #fff; padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  td { padding: 9px 10px; border-bottom: 1px solid #F0EDE4; vertical-align: middle; }
+  tbody tr:nth-child(even) { background: #FAFAF7; }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td { background: #1A1A1A; color: #fff; font-weight: 700; padding: 9px 10px; }
+  .footer { margin-top: 16px; font-size: 10px; color: #aaa; border-top: 1px solid #F0EDE4; padding-top: 8px; }
+  @media print { body { background: white; margin: 20px; } }
 </style>
 </head><body>
-  <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
-    <img src="${window.location.origin}/logo-circular.png" style="height:72px;width:auto" alt="Ayres del Sur" />
+  <div class="page-header">
+    <img src="${window.location.origin}/logo-circular.png" style="height:64px;width:auto" alt="Ayres del Sur" />
     <div>
-      <h1 style="margin:0 0 2px">Hoja de Ruta</h1>
-      <div class="sub">${fecha} · Distribuidora Mayorista Ayres del Sur</div>
+      <h1>Hoja de Ruta</h1>
+      <div class="sub">Distribuidora Mayorista · San Miguel del Monte</div>
     </div>
   </div>
-  <div class="vendedor">
-    Vendedor: ${vendedorNombre} &nbsp;·&nbsp; ${orders.length} cliente${orders.length !== 1 ? 's' : ''} con prepedido
+
+  <div class="vendedor-pill">
+    🧑‍💼 ${esc(vendedorNombre)}
   </div>
+
+  <div class="summary">
+    <div class="summary-item">
+      <span class="summary-label">Fecha</span>
+      <span class="summary-value">${fecha}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Clientes</span>
+      <span class="summary-value">${orders.length}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Total estimado</span>
+      <span class="summary-value" style="color:#E8A020">${formatPrice(total)}</span>
+    </div>
+  </div>
+
   <table>
     <thead>
       <tr>
@@ -191,20 +220,21 @@ function buildRouteSheetHTML(orders, vendedorNombre) {
         <th>Dirección</th>
         <th>Referencia</th>
         <th>Fecha Visita</th>
-        <th style="text-align:right">Total</th>
-        <th style="text-align:center;width:70px">✓ Entregado</th>
+        <th style="text-align:right">Total estimado</th>
+        <th style="text-align:center;width:80px">✓ Visitado</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="5" style="text-align:right">TOTAL</td>
-        <td style="text-align:right">${formatPrice(total)}</td>
+        <td colspan="5" style="text-align:right;font-size:10px;letter-spacing:0.06em;text-transform:uppercase">Total estimado</td>
+        <td style="text-align:right;color:#E8A020;font-size:14px">${formatPrice(total)}</td>
         <td></td>
       </tr>
     </tfoot>
   </table>
-  <div class="footer">Ayres del Sur — Distribuidora de Alimentos | Documento generado el ${fecha}</div>
+
+  <div class="footer">Ayres del Sur — Distribuidora de Alimentos · Documento generado el ${fecha}</div>
 </body></html>`
 }
 
