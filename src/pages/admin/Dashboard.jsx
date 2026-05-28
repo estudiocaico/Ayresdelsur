@@ -46,11 +46,12 @@ export default function AdminDashboard() {
         { data: allClientes },
         { data: allItems },
       ] = await Promise.all([
-        // 1. Pedidos pendientes sin vendedor asignado
+        // 1. Pedidos activos (no cerrados ni cancelados) sin vendedor asignado
         supabase.from('prepedidos')
           .select('*', { count: 'exact', head: true })
-          .eq('estado', 'pendiente')
-          .is('vendedor_id', null),
+          .is('vendedor_id', null)
+          .neq('estado', 'cerrado')
+          .neq('estado', 'cancelado'),
         // 2. Pedidos revisados (listos para despachar)
         supabase.from('prepedidos')
           .select('id, total')
