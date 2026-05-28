@@ -150,16 +150,16 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
 
   return (
     <div
-      className="bg-white rounded-xl shadow-card flex overflow-hidden animate-card-reveal"
+      className="bg-white rounded-xl shadow-card flex overflow-hidden animate-card-reveal min-h-[132px]"
       style={{ borderLeft: `3px solid ${catColor ?? 'var(--amarillo)'}` }}
     >
-      {/* Imagen — todo el alto de la card, ratio 2:3 */}
-      <div className="self-stretch aspect-[2/3] shrink-0 bg-cream-dark flex items-center justify-center">
+      {/* Imagen — ancho fijo 88px, ocupa todo el alto del card → ratio ~2:3 */}
+      <div className="relative w-[88px] shrink-0 self-stretch bg-cream-dark">
         {imgSrc && !imgFailed ? (
           <img
             src={imgSrc}
             alt={product.nombre}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             onLoad={() => setImgFailed(false)}
             onError={() => {
               if (imgSrc.includes('front_es.400.jpg')) {
@@ -171,7 +171,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-3xl"
+            className="absolute inset-0 flex items-center justify-center text-4xl"
             style={{ background: catColor ? `${catColor}20` : undefined }}
           >
             {CATEGORY_ICONS[product.categorias?.nombre] ?? '📦'}
