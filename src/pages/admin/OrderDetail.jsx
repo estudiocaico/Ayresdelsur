@@ -39,7 +39,7 @@ export default function AdminOrderDetail() {
         clientes(nombre_negocio, razon_social, cuit, direccion, telefono, email),
         vendedores(nombre),
         items_prepedido(
-          id, cantidad, precio_unitario, subtotal,
+          id, cantidad, precio_unitario, subtotal, presentacion,
           productos(nombre, codigo_interno, descripcion, unidad),
           variantes_producto(valor)
         )
@@ -159,7 +159,11 @@ export default function AdminOrderDetail() {
                     {item.productos?.descripcion && <div className="text-[0.72rem] text-muted-foreground">{item.productos.descripcion}</div>}
                   </TableCell>
                   <TableCell className="text-sm">{item.variantes_producto?.valor ?? '—'}</TableCell>
-                  <TableCell className="text-sm">{item.productos?.unidad}</TableCell>
+                  <TableCell className="text-sm">
+                    {item.presentacion && item.presentacion !== 'unidad'
+                      ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1)
+                      : (item.productos?.unidad ?? 'unidad')}
+                  </TableCell>
                   <TableCell className="text-right font-bold">{item.cantidad}</TableCell>
                   <TableCell className="text-right text-sm">{formatPrice(item.precio_unitario)}</TableCell>
                   <TableCell className="text-right font-bold">{formatPrice(item.subtotal)}</TableCell>
