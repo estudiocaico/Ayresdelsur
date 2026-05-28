@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../hooks/useCart'
@@ -99,15 +99,17 @@ const PRES_LABELS = { unidad: 'Unidad', pack: 'Pack', pallet: 'Pallet' }
 function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [selectedVariant, setSelectedVariant] = useState(product.variantes_producto?.[0] ?? null)
   const [presentacion, setPresentacion]       = useState('unidad')
-  const [imgSrc, setImgSrc]                   = useState(product.imagen_url ?? null)
-  const [imgFailed, setImgFailed]             = useState(false)
+  const [imgSrc, setImgSrc]   = useState(product.imagen_url ?? null)
+  const [imgFailed, setImgFailed] = useState(false)
+  const imgTimerRef = useRef(null)
 
-  // Timeout de 4 s: si la imagen no cargó (URL colgada/timeout), mostrar emoji
+  // Timeout de 4 s: fallback a emoji si la URL se cuelga y nunca dispara onLoad/onError.
+  // El timer se cancela en onLoad para que imágenes que sí cargan no desaparezcan.
   useEffect(() => {
     if (!imgSrc || imgFailed) return
-    const t = setTimeout(() => setImgFailed(true), 4000)
-    return () => clearTimeout(t)
-  }, [imgSrc, imgFailed])
+    imgTimerRef.current = setTimeout(() => setImgFailed(true), 4000)
+    return () => clearTimeout(imgTimerRef.current)
+  }, [imgSrc]) // ← solo depende de imgSrc, no de imgFailed
 
   // Reset presentation when variant changes (pack/pallet may not be available on new variant)
   function handleVariantChange(varId) {
@@ -150,17 +152,17 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
 
   return (
     <div
-      className="bg-white rounded-xl shadow-card flex overflow-hidden animate-card-reveal min-h-[132px]"
+      className="bg-white rounded-xl shadow-card flex overflow-hidden animate-card-reveal min-h-[96px]"
       style={{ borderLeft: `3px solid ${catColor ?? 'var(--amarillo)'}` }}
     >
-      {/* Imagen — ancho fijo 88px, ocupa todo el alto del card → ratio ~2:3 */}
-      <div className="relative w-[88px] shrink-0 self-stretch bg-cream-dark">
+      {/* Imagen — 96px ancho × alto completo del card (mínimo cuadrado 3:3) */}
+      <div className="relative w-[96px] shrink-0 self-stretch bg-cream-dark">
         {imgSrc && !imgFailed ? (
           <img
             src={imgSrc}
             alt={product.nombre}
             className="absolute inset-0 w-full h-full object-cover"
-            onLoad={() => setImgFailed(false)}
+            onLoad={() => clearTimeout(imgTimerRef.current)}
             onError={() => {
               if (imgSrc.includes('front_es.400.jpg')) {
                 setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
