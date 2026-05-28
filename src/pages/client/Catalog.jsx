@@ -152,8 +152,18 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
             alt={product.nombre}
             className="w-full h-full object-cover"
             onError={e => {
-              e.target.style.display = 'none'
-              e.target.nextSibling.style.display = 'flex'
+              const s = e.target.src
+              if (s.includes('front_es.400.jpg')) {
+                // Intentar sin idioma
+                e.target.src = s.replace('front_es.400.jpg', 'front.400.jpg')
+              } else if (s.includes('front.400.jpg')) {
+                // Intentar versión 200px
+                e.target.src = s.replace('front.400.jpg', 'front.200.jpg')
+              } else {
+                // Sin imagen disponible → mostrar emoji
+                e.target.style.display = 'none'
+                e.target.nextSibling.style.display = 'flex'
+              }
             }}
           />
         ) : null}
