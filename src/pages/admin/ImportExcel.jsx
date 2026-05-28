@@ -34,13 +34,31 @@ function parsePrice(val) {
   return isNaN(n) || n <= 0 ? null : n
 }
 
+async function fetchOFFImageUrl(ean) {
+  try {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${ean}.json`,
+      { signal: controller.signal }
+    )
+    const data = await res.json()
+    if (data.status === 1) {
+      return data.product?.image_front_url || data.product?.image_url || null
+    }
+  } catch {}
+  return null
+}
+
 export default function AdminImport() {
   const fileRef = useRef()
-  const [rows, setRows]         = useState([])
-  const [preview, setPreview]   = useState(false)
+  const [rows, setRows]           = useState([])
+  const [preview, setPreview]     = useState(false)
   const [importing, setImporting] = useState(false)
-  const [result, setResult]     = useState(null)
-  const [error, setError]       = useState('')
+  const [result, setResult]       = useState(null)
+  const [error, setError]         = useState('')
+  const [searchImages, setSearchImages] = useState(false)
+  const [importProgress, setImportProgress] = useState('')
 
   const cap = (str, max) => String(str ?? '').trim().slice(0, max)
 
@@ -81,13 +99,14 @@ export default function AdminImport() {
   }
 
   async function handleImport() {
-    setImporting(true); setError('')
-    let created = 0, updated = 0, errors = []
+    setImporting(true); setError(''); setImportProgress('')
+    let created = 0, updated = 0, imgFound = 0, errors = []
     const catCache = {}
     const { data: existingCats } = await supabase.from('categorias').select('id, nombre')
     existingCats?.forEach(c => { catCache[c.nombre.toLowerCase()] = c.id })
 
-    for (const row of rows) {
+    for (const [i, row] of rows.entries()) {
+      setImportProgress(`Procesando ${i + 1} / ${rows.length}…`)
       if (!row.nombre || !row.codigo_interno) { errors.push(`Fila ${row._row}: nombre y código interno son obligatorios.`); continue }
       if (!row.precio) { errors.push(`Fila ${row._row}: precio minorista inválido o vacío.`); continue }
       try {
@@ -100,10 +119,16 @@ export default function AdminImport() {
           }
           catId = catCache[catKey]
         }
-        // imagen_url se configura manualmente desde el panel Admin → Productos
-        const imagen_url = null
 
-        const { data: existing } = await supabase.from('productos').select('id').eq('codigo_interno', row.codigo_interno).single()
+        // Buscar imagen en Open Food Facts si el checkbox está activo y hay EAN
+        let imagen_url = null
+        if (searchImages && row.ean && row.ean.length >= 8) {
+          setImportProgress(`Buscando imagen ${i + 1} / ${rows.length} (${row.nombre})…`)
+          imagen_url = await fetchOFFImageUrl(row.ean)
+          if (imagen_url) imgFound++
+        }
+
+        const { data: existing } = await supabase.from('productos').select('id, imagen_url').eq('codigo_interno', row.codigo_interno).single()
         const productData = {
           codigo_interno: row.codigo_interno, ean: row.ean || null, nombre: row.nombre,
           descripcion: row.descripcion || null, categoria_id: catId,
@@ -112,7 +137,9 @@ export default function AdminImport() {
           unidades_pack: row.unidades_pack,
           precio_pallet: row.precio_pallet, precio_pallet_mediano: row.precio_pallet_mediano, precio_pallet_mayorista: row.precio_pallet_mayorista,
           unidades_pallet: row.unidades_pallet,
-          unidad: row.unidad || 'unidad', activo: row.activo, imagen_url,
+          unidad: row.unidad || 'unidad', activo: row.activo,
+          // Si la búsqueda encontró imagen: usar esa. Si no y el producto ya tenía una: mantenerla.
+          imagen_url: imagen_url ?? (existing?.imagen_url ?? null),
         }
         let productId
         if (existing) { await supabase.from('productos').update(productData).eq('id', existing.id); productId = existing.id; updated++ }
@@ -128,7 +155,8 @@ export default function AdminImport() {
       } catch (err) { errors.push(`Fila ${row._row}: ${err.message}`) }
     }
 
-    setResult({ created, updated, errors }); setImporting(false); setPreview(false); setRows([])
+    setResult({ created, updated, imgFound: searchImages ? imgFound : null, errors })
+    setImporting(false); setPreview(false); setRows([]); setImportProgress('')
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -193,6 +221,9 @@ export default function AdminImport() {
             <Alert className="mb-5 bg-amarillo-cl border-amarillo/30 text-[#7A4B00]">
               <AlertDescription>
                 <strong>Importación completada:</strong> {result.created} productos nuevos, {result.updated} actualizados.
+                {result.imgFound != null && (
+                  <span className="ml-1">· <strong>{result.imgFound} imágenes</strong> encontradas en Open Food Facts.</span>
+                )}
                 {result.errors.length > 0 && (
                   <div className="mt-2">
                     <strong>Errores ({result.errors.length}):</strong>
@@ -207,11 +238,28 @@ export default function AdminImport() {
 
           {preview && rows.length > 0 && (
             <>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <span className="font-semibold text-sm">{rows.length} filas detectadas. Revisá la preview:</span>
-                <Button onClick={handleImport} disabled={importing} className="bg-negro text-white hover:bg-negro/90 gap-2">
-                  {importing ? <><Loader2 size={14} className="animate-spin" /> Importando...</> : <><Upload size={14} /> Importar {rows.length} productos</>}
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm select-none">
+                    <input
+                      type="checkbox"
+                      checked={searchImages}
+                      onChange={e => setSearchImages(e.target.checked)}
+                      disabled={importing}
+                      className="w-4 h-4 rounded accent-amarillo"
+                    />
+                    <span>
+                      Buscar imágenes en Open Food Facts
+                      <span className="text-muted-foreground text-xs ml-1">(requiere EAN · ~5 seg/producto)</span>
+                    </span>
+                  </label>
+                  <Button onClick={handleImport} disabled={importing} className="bg-negro text-white hover:bg-negro/90 gap-2">
+                    {importing
+                      ? <><Loader2 size={14} className="animate-spin" /> {importProgress || 'Importando...'}</>
+                      : <><Upload size={14} /> Importar {rows.length} productos</>}
+                  </Button>
+                </div>
               </div>
               <ScrollArea className="w-full h-72 whitespace-nowrap rounded-md border">
                 <Table className="text-xs">

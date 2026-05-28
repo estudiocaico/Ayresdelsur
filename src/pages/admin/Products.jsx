@@ -7,7 +7,23 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Loader2, Pencil, ToggleLeft, ToggleRight, Plus, X } from 'lucide-react'
+import { Loader2, Pencil, ToggleLeft, ToggleRight, Plus, X, Search } from 'lucide-react'
+
+async function fetchOFFImageUrl(ean) {
+  try {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${ean}.json`,
+      { signal: controller.signal }
+    )
+    const data = await res.json()
+    if (data.status === 1) {
+      return data.product?.image_front_url || data.product?.image_url || null
+    }
+  } catch {}
+  return null
+}
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -53,6 +69,7 @@ export default function AdminProducts() {
   const [variants, setVariants]     = useState([])
   const [deletedVarIds, setDeletedVarIds] = useState([])
   const [saving, setSaving]         = useState(false)
+  const [searchingImgId, setSearchingImgId] = useState(null) // id del producto buscando imagen
 
   useEffect(() => { loadData() }, [])
 
@@ -114,6 +131,24 @@ export default function AdminProducts() {
   async function toggleActive(p) {
     await supabase.from('productos').update({ activo: !p.activo }).eq('id', p.id)
     loadData()
+  }
+
+  // Busca imagen en Open Food Facts por EAN.
+  // fromDialog=true → rellena el campo del dialog sin guardar aún.
+  // fromDialog=false → guarda directo en DB desde la tabla.
+  async function buscarImagenOFF(product, fromDialog = false) {
+    if (!product.ean) return
+    setSearchingImgId(product.id)
+    const url = await fetchOFFImageUrl(product.ean)
+    if (url) {
+      if (fromDialog) {
+        setEditing(f => ({ ...f, imagen_url: url }))
+      } else {
+        await supabase.from('productos').update({ imagen_url: url }).eq('id', product.id)
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, imagen_url: url } : p))
+      }
+    }
+    setSearchingImgId(null)
   }
 
   async function saveEdit(e) {
@@ -263,7 +298,33 @@ export default function AdminProducts() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">URL de imagen (opcional)</Label>
-                <Input value={editing.imagen_url ?? ''} onChange={e => setEditing(f => ({...f, imagen_url: e.target.value}))} placeholder="https://..." />
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    value={editing.imagen_url ?? ''}
+                    onChange={e => setEditing(f => ({...f, imagen_url: e.target.value}))}
+                    placeholder="https://..."
+                  />
+                  {editing.ean && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={searchingImgId === editing.id}
+                      onClick={() => buscarImagenOFF(editing, true)}
+                      className="shrink-0 gap-1.5 text-xs"
+                      title={`Buscar en Open Food Facts (EAN: ${editing.ean})`}
+                    >
+                      {searchingImgId === editing.id
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <Search size={13} />}
+                      Buscar en OFF
+                    </Button>
+                  )}
+                </div>
+                {editing.imagen_url && (
+                  <img src={editing.imagen_url} alt="preview" className="h-16 w-16 object-cover rounded-lg border border-border mt-1" />
+                )}
               </div>
 
               <DialogFooter>
@@ -303,12 +364,20 @@ export default function AdminProducts() {
                 <TableRow key={p.id} className="hover:bg-cream">
                   <TableCell className="text-xs text-muted-foreground">{p.codigo_interno}</TableCell>
                   <TableCell>
-                    <div className="font-semibold text-sm">{p.nombre}</div>
-                    {p.descripcion && <div className="text-[0.72rem] text-muted-foreground">{p.descripcion}</div>}
-                    <div className="text-[0.7rem] text-muted-foreground mt-0.5">
-                      Min: {formatPrice(p.precio)}
-                      {p.precio_mediano   ? ` · Med: ${formatPrice(p.precio_mediano)}`   : ''}
-                      {p.precio_mayorista ? ` · May: ${formatPrice(p.precio_mayorista)}` : ''}
+                    <div className="flex items-center gap-2">
+                      {p.imagen_url
+                        ? <img src={p.imagen_url} alt="" className="w-8 h-8 rounded object-cover shrink-0 border border-border" />
+                        : <div className="w-8 h-8 rounded bg-cream-dark shrink-0 flex items-center justify-center text-base">📦</div>
+                      }
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm">{p.nombre}</div>
+                        {p.descripcion && <div className="text-[0.72rem] text-muted-foreground">{p.descripcion}</div>}
+                        <div className="text-[0.7rem] text-muted-foreground mt-0.5">
+                          Min: {formatPrice(p.precio)}
+                          {p.precio_mediano   ? ` · Med: ${formatPrice(p.precio_mediano)}`   : ''}
+                          {p.precio_mayorista ? ` · May: ${formatPrice(p.precio_mayorista)}` : ''}
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{p.categorias?.nombre ?? '—'}</TableCell>
@@ -328,10 +397,24 @@ export default function AdminProducts() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} className="h-7 px-2 text-xs gap-1">
                         <Pencil size={11} /> Editar
                       </Button>
+                      {p.ean && (
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => buscarImagenOFF(p, false)}
+                          disabled={searchingImgId === p.id}
+                          className="h-7 px-2 text-xs gap-1 text-blue-600 hover:text-blue-700"
+                          title={`Buscar imagen en Open Food Facts (EAN: ${p.ean})`}
+                        >
+                          {searchingImgId === p.id
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <Search size={11} />}
+                          {p.imagen_url ? '↻ Img' : '+ Img'}
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => toggleActive(p)} className="h-7 px-2 text-xs gap-1">
                         {p.activo ? <ToggleLeft size={13} /> : <ToggleRight size={13} />}
                         {p.activo ? 'Desactivar' : 'Activar'}
