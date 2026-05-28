@@ -99,6 +99,8 @@ const PRES_LABELS = { unidad: 'Unidad', pack: 'Pack', pallet: 'Pallet' }
 function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [selectedVariant, setSelectedVariant] = useState(product.variantes_producto?.[0] ?? null)
   const [presentacion, setPresentacion]       = useState('unidad')
+  const [imgSrc, setImgSrc]                   = useState(product.imagen_url ?? null)
+  const [imgFailed, setImgFailed]             = useState(false)
 
   // Reset presentation when variant changes (pack/pallet may not be available on new variant)
   function handleVariantChange(varId) {
@@ -146,36 +148,27 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
     >
       {/* Image / placeholder */}
       <div className="w-[60px] h-[60px] shrink-0 rounded-lg overflow-hidden bg-cream-dark flex items-center justify-center">
-        {product.imagen_url ? (
+        {imgSrc && !imgFailed ? (
           <img
-            src={product.imagen_url}
+            src={imgSrc}
             alt={product.nombre}
             className="w-full h-full object-cover"
-            onError={e => {
-              const s = e.target.src
-              if (s.includes('front_es.400.jpg')) {
-                // Intentar sin idioma
-                e.target.src = s.replace('front_es.400.jpg', 'front.400.jpg')
-              } else if (s.includes('front.400.jpg')) {
-                // Intentar versión 200px
-                e.target.src = s.replace('front.400.jpg', 'front.200.jpg')
+            onError={() => {
+              if (imgSrc.includes('front_es.400.jpg')) {
+                setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
               } else {
-                // Sin imagen disponible → mostrar emoji
-                e.target.style.display = 'none'
-                e.target.nextSibling.style.display = 'flex'
+                setImgFailed(true)
               }
             }}
           />
-        ) : null}
-        <div
-          className="w-full h-full items-center justify-center text-2xl"
-          style={{
-            display: product.imagen_url ? 'none' : 'flex',
-            background: catColor ? `${catColor}20` : undefined,
-          }}
-        >
-          {CATEGORY_ICONS[product.categorias?.nombre] ?? '📦'}
-        </div>
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center text-2xl"
+            style={{ background: catColor ? `${catColor}20` : undefined }}
+          >
+            {CATEGORY_ICONS[product.categorias?.nombre] ?? '📦'}
+          </div>
+        )}
       </div>
 
       {/* Info */}
