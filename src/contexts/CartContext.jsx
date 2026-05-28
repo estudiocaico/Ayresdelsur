@@ -1,0 +1,125 @@
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { useAuth } from './AuthContext'
+
+const CartContext = createContext(null)
+const CART_KEY = 'ads_cart_'
+
+export function CartProvider({ children }) {
+  const { user } = useAuth()
+  const storageKey = CART_KEY + (user?.id ?? 'guest')
+
+  const [items, setItems] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? []
+    } catch { return [] }
+  })
+
+  const [toast, setToast] = useState(null) // { message, exiting, id }
+  const timerRef  = useRef(null)
+  const itemsRef  = useRef(items)
+
+  useEffect(() => { itemsRef.current = items }, [items])
+
+  // Persist to sessionStorage whenever items change
+  useEffect(() => {
+    sessionStorage.setItem(storageKey, JSON.stringify(items))
+  }, [items, storageKey])
+
+  // Re-hydrate when user switches (storageKey changes)
+  useEffect(() => {
+    try {
+      setItems(JSON.parse(sessionStorage.getItem(storageKey) ?? 'null') ?? [])
+    } catch { setItems([]) }
+  }, [storageKey])
+
+  /* ── Toast ──────────────────────────────────────────────────── */
+  function showToast(message) {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    // id único en cada llamada → React remonta el nodo → animación reinicia siempre
+    setToast({ message, exiting: false, id: Date.now() })
+    timerRef.current = setTimeout(() => {
+      setToast(t => t ? { ...t, exiting: true } : null)
+      setTimeout(() => setToast(null), 380)
+    }, 2600)
+  }
+
+  /* ── Cart operations ────────────────────────────────────────── */
+  // presentacion: 'unidad' | 'pack' | 'pallet'  — included in key so each
+  // presentation is an independent cart line (e.g. 1 unidad + 1 pack = 2 lines)
+  function addItem(product, qty = 1, variantId = null, variantLabel = '', price = null, presentacion = 'unidad') {
+    const effectivePrice = price !== null ? price : product.precio
+    const key = `${product.id}-${variantId ?? 'base'}-${presentacion}`
+
+    // Read current qty from ref so toast shows correct number
+    const existing = itemsRef.current.find(i => i.key === key)
+    const newQty   = (existing?.qty ?? 0) + qty
+
+    setItems(prev => {
+      if (existing) {
+        return prev.map(i => i.key === key ? { ...i, qty: i.qty + qty } : i)
+      }
+      return [...prev, {
+        key,
+        productId:    product.id,
+        name:         product.nombre,
+        description:  product.descripcion,
+        price:        effectivePrice,
+        variantId,
+        variantLabel,
+        presentacion,
+        qty,
+        unit:         product.unidad,
+      }]
+    })
+
+    const label = variantLabel
+      ? `${product.nombre} · ${variantLabel}`
+      : product.nombre
+    showToast(`${newQty}× ${label}`)
+  }
+
+  function updateQty(key, qty) {
+    if (qty <= 0) { removeItem(key); return }
+    setItems(prev => prev.map(i => i.key === key ? { ...i, qty } : i))
+    const item = itemsRef.current.find(i => i.key === key)
+    if (item) {
+      const label = item.variantLabel ? `${item.name} · ${item.variantLabel}` : item.name
+      showToast(`${qty}× ${label}`)
+    }
+  }
+
+  function removeItem(key) {
+    setItems(prev => prev.filter(i => i.key !== key))
+  }
+
+  function clearCart() {
+    setItems([])
+  }
+
+  const total     = items.reduce((s, i) => s + i.price * i.qty, 0)
+  const itemCount = items.reduce((s, i) => s + i.qty, 0)
+
+  return (
+    <CartContext.Provider value={{ items, total, itemCount, addItem, updateQty, removeItem, clearCart }}>
+      {children}
+
+      {/* ── Toast notification ──────────────────────────── */}
+      {toast && (
+        <div
+          key={toast.id}
+          className={`fixed bottom-8 left-1/2 z-[300] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-negro text-white text-sm font-semibold shadow-lg whitespace-nowrap ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          role="status"
+          aria-live="polite"
+        >
+          🛒 <span>{toast.message} en tu carrito</span>
+        </div>
+      )}
+    </CartContext.Provider>
+  )
+}
+
+export function useCart() {
+  const ctx = useContext(CartContext)
+  if (!ctx) throw new Error('useCart must be used inside <CartProvider>')
+  return ctx
+}

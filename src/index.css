@@ -1,0 +1,138 @@
+/* ── Tipografías Ayres del Sur ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── shadcn/ui CSS variables (HSL format) ──────────────────────────────── */
+@layer base {
+  :root {
+    /* Ayres del Sur brand palette (also available as Tailwind colors) */
+    --negro:          #1A1A1A;
+    --amarillo:       #E8A020;
+    --amarillo-cl:    #FFF8E8;
+    --azul:           #2E6DA8;
+    --azul-cl:        #EBF2FA;
+    --cream:          #FAFAF7;
+    --cream-dark:     #F0EDE4;
+    --danger:         #C62828;
+
+    /* shadcn/ui semantic tokens */
+    --background:        0 0% 98%;        /* cream #FAFAF7 */
+    --foreground:        0 0% 10%;        /* negro #1A1A1A */
+
+    --card:              0 0% 100%;
+    --card-foreground:   0 0% 10%;
+
+    --popover:           0 0% 100%;
+    --popover-foreground:0 0% 10%;
+
+    --primary:           0 0% 10%;        /* negro */
+    --primary-foreground:0 0% 100%;
+
+    --secondary:         40 100% 52%;     /* amarillo */
+    --secondary-foreground: 0 0% 10%;
+
+    --muted:             40 10% 94%;      /* cream-dark */
+    --muted-foreground:  0 0% 46%;        /* text-muted #767676 */
+
+    --accent:            40 100% 52%;     /* amarillo */
+    --accent-foreground: 0 0% 10%;
+
+    --destructive:       0 72% 47%;       /* danger #C62828 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border:            0 0% 88%;        /* #E0E0E0 */
+    --input:             0 0% 88%;
+    --ring:              0 0% 10%;
+
+    --radius: 0.625rem;
+
+    /* Font vars for Tailwind */
+    --font:         'DM Sans', 'Segoe UI', system-ui, sans-serif;
+    --font-display: 'Fraunces', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { font-size: 16px; }
+
+  body {
+    @apply font-sans text-foreground bg-cream;
+    line-height: 1.5;
+    /* Subtle dot-grid texture */
+    background-image: radial-gradient(circle, rgba(26,26,26,0.065) 1px, transparent 1px);
+    background-size: 22px 22px;
+    background-attachment: fixed;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  button { cursor: pointer; }
+  img { max-width: 100%; }
+}
+
+/* ── Animaciones custom ────────────────────────────────────────────────── */
+@layer utilities {
+  /* Card reveal stagger */
+  @keyframes card-reveal {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-card-reveal { animation: card-reveal 0.38s ease both; }
+
+  /* Order / detail open */
+  @keyframes order-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-order-in { animation: order-in 0.36s ease both; }
+
+  @keyframes detail-open {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-detail-open { animation: detail-open 0.22s ease both; }
+
+  /* Spinner */
+  @keyframes spin-fast {
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin-fast { animation: spin-fast 0.7s linear infinite; }
+
+  /* Toast */
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.88); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+    to   { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.95); }
+  }
+  .animate-toast-in  { animation: toast-in  0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .animate-toast-out { animation: toast-out 0.38s ease forwards; }
+
+  /* Checkmark draw (OrderConfirmed) */
+  @keyframes check-draw {
+    from { stroke-dashoffset: 200; }
+    to   { stroke-dashoffset: 0; }
+  }
+  .animate-check-circle {
+    stroke-dasharray: 200; stroke-dashoffset: 200;
+    animation: check-draw 0.6s ease 0.1s forwards;
+  }
+  .animate-check-path {
+    stroke-dasharray: 60; stroke-dashoffset: 60;
+    animation: check-draw 0.4s ease 0.55s forwards;
+  }
+}
+
+/* ── Print styles ──────────────────────────────────────────────────────── */
+@page { margin: 0.5cm; }
+@media print {
+  .no-print { display: none !important; }
+  body      { background: white !important; background-image: none !important; }
+  /* Admin layout: ocultar sidebar y resetear margen del contenido */
+  aside     { display: none !important; }
+  main      { margin-left: 0 !important; width: 100% !important; }
+}
