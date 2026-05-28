@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
 import AdminLayout from '../../components/AdminLayout'
@@ -239,12 +239,13 @@ function buildRouteSheetHTML(orders, vendedorNombre) {
 }
 
 export default function AdminOrders() {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const [orders, setOrders]                 = useState([])
   const [vendedores, setVendedores]         = useState([])
   const [loading, setLoading]               = useState(true)
-  const [estado, setEstado]                 = useState('Todos')
-  const [vendedorFilter, setVendedorFilter] = useState('Todos')
+  const [estado, setEstado]                 = useState(location.state?.estado ?? 'Todos')
+  const [vendedorFilter, setVendedorFilter] = useState(location.state?.vendedorFilter ?? 'Todos')
   const [search, setSearch]                 = useState('')
   const [printing, setPrinting]             = useState(false)
 

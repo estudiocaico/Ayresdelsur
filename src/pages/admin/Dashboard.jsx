@@ -194,7 +194,7 @@ export default function AdminDashboard() {
 
         {/* Pedidos sin asignar */}
         <Card
-          onClick={() => navigate('/admin/pedidos')}
+          onClick={() => navigate('/admin/pedidos', { state: { vendedorFilter: 'sin_asignar' } })}
           className={`shadow-panel border-l-4 cursor-pointer hover:shadow-md transition-shadow ${sinAsignarCount > 0 ? 'border-l-red-500' : 'border-l-green-500'}`}
         >
           <CardContent className="pt-5">
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
 
         {/* Por despachar */}
         <Card
-          onClick={() => navigate('/admin/pedidos')}
+          onClick={() => navigate('/admin/pedidos', { state: { estado: 'revisado' } })}
           className="shadow-panel border-l-4 border-l-amarillo cursor-pointer hover:shadow-md transition-shadow"
         >
           <CardContent className="pt-5">
