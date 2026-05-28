@@ -161,7 +161,11 @@ export default function MyOrders() {
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-muted-foreground text-xs">{item.cantidad} {item.productos?.unidad}</div>
+                            <div className="text-muted-foreground text-xs">
+                              {item.cantidad} {item.presentacion && item.presentacion !== 'unidad'
+                                ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1)
+                                : (item.productos?.unidad ?? 'unidad')}
+                            </div>
                             <div className="font-display font-bold text-amarillo text-sm">{formatPrice(item.precio_unitario * item.cantidad)}</div>
                           </div>
                         </div>

@@ -52,7 +52,7 @@ function buildFullOrdersHTML(orders, vendedorNombre) {
           <strong>${esc(item.productos?.nombre)}</strong>
           ${item.variantes_producto?.valor ? `<br><span class="muted" style="font-size:10px">${esc(item.variantes_producto.valor)}</span>` : ''}
         </td>
-        <td class="muted">${esc(item.productos?.unidad)}</td>
+        <td class="muted">${esc(item.presentacion && item.presentacion !== 'unidad' ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1) : (item.productos?.unidad ?? 'unidad'))}</td>
         <td style="text-align:right;font-weight:700">${esc(item.cantidad)}</td>
         <td style="text-align:right">${formatPrice(item.precio_unitario)}</td>
         <td style="text-align:right;font-weight:700;color:#E8A020">${formatPrice(item.subtotal)}</td>
@@ -307,7 +307,7 @@ export default function AdminOrders() {
         id, numero_referencia, total, estado, created_at, fecha_visita,
         clientes(nombre_negocio, razon_social, cuit, direccion, telefono),
         items_prepedido(
-          id, cantidad, precio_unitario, subtotal,
+          id, cantidad, precio_unitario, subtotal, presentacion,
           productos(nombre, codigo_interno, unidad),
           variantes_producto(valor)
         )
