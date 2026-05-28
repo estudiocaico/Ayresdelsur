@@ -100,17 +100,8 @@ export default function AdminImport() {
           }
           catId = catCache[catKey]
         }
-        let imagen_url = null
-        if (row.ean && row.ean.length >= 8) {
-          const code = String(row.ean).replace(/\D/g, '')
-          if (code.length > 8) {
-            // EAN-13 / EAN-14: Open Food Facts usa subdirectorios de 3 dígitos
-            const a = code.slice(0, 3), b = code.slice(3, 6), c = code.slice(6, 9), d = code.slice(9)
-            imagen_url = `https://images.openfoodfacts.org/images/products/${a}/${b}/${c}/${d}/front_es.400.jpg`
-          } else {
-            imagen_url = `https://images.openfoodfacts.org/images/products/${code}/front_es.400.jpg`
-          }
-        }
+        // imagen_url se configura manualmente desde el panel Admin → Productos
+        const imagen_url = null
 
         const { data: existing } = await supabase.from('productos').select('id').eq('codigo_interno', row.codigo_interno).single()
         const productData = {

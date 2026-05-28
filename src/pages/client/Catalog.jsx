@@ -102,6 +102,13 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [imgSrc, setImgSrc]                   = useState(product.imagen_url ?? null)
   const [imgFailed, setImgFailed]             = useState(false)
 
+  // Timeout de 4 s: si la imagen no cargó (URL colgada/timeout), mostrar emoji
+  useEffect(() => {
+    if (!imgSrc || imgFailed) return
+    const t = setTimeout(() => setImgFailed(true), 4000)
+    return () => clearTimeout(t)
+  }, [imgSrc, imgFailed])
+
   // Reset presentation when variant changes (pack/pallet may not be available on new variant)
   function handleVariantChange(varId) {
     const v = product.variantes_producto.find(v => v.id === varId)
@@ -153,6 +160,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
             src={imgSrc}
             alt={product.nombre}
             className="w-full h-full object-cover"
+            onLoad={() => setImgFailed(false)}
             onError={() => {
               if (imgSrc.includes('front_es.400.jpg')) {
                 setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
