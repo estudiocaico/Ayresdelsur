@@ -247,6 +247,8 @@ export default function AdminOrders() {
   const [estado, setEstado]                 = useState(location.state?.estado ?? 'Todos')
   const [vendedorFilter, setVendedorFilter] = useState(location.state?.vendedorFilter ?? 'Todos')
   const [search, setSearch]                 = useState('')
+  const [fechaDesde, setFechaDesde]         = useState('')
+  const [fechaHasta, setFechaHasta]         = useState('')
   const [printing, setPrinting]             = useState(false)
 
   useEffect(() => {
@@ -280,11 +282,20 @@ export default function AdminOrders() {
     load()
   }, [estado, vendedorFilter])
 
-  const filtered = orders.filter(o =>
-    !search ||
-    o.numero_referencia?.includes(search.toUpperCase()) ||
-    o.clientes?.nombre_negocio?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = orders.filter(o => {
+    if (search &&
+        !o.numero_referencia?.includes(search.toUpperCase()) &&
+        !o.clientes?.nombre_negocio?.toLowerCase().includes(search.toLowerCase())) return false
+    if (fechaDesde) {
+      const desde = new Date(fechaDesde + 'T00:00:00')
+      if (new Date(o.created_at) < desde) return false
+    }
+    if (fechaHasta) {
+      const hasta = new Date(fechaHasta + 'T23:59:59')
+      if (new Date(o.created_at) > hasta) return false
+    }
+    return true
+  })
 
   async function assignVendedor(orderId, vendedorId) {
     await supabase
@@ -300,6 +311,8 @@ export default function AdminOrders() {
 
   async function handlePrintOrders() {
     if (!selectedVendedor) return
+    const ids = filtered.map(o => o.id)
+    if (!ids.length) return
     setPrinting(true)
     const { data } = await supabase
       .from('prepedidos')
@@ -312,7 +325,7 @@ export default function AdminOrders() {
           variantes_producto(valor)
         )
       `)
-      .eq('vendedor_id', vendedorFilter)
+      .in('id', ids)
       .order('created_at', { ascending: false })
 
     if (data?.length) {
@@ -384,6 +397,27 @@ export default function AdminOrders() {
           <option value="sin_asignar">Sin asignar</option>
           {vendedores.map(v => <option key={v.id} value={v.id}>{v.nombre}</option>)}
         </select>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Desde</span>
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={e => setFechaDesde(e.target.value)}
+            max={fechaHasta || undefined}
+            className="h-9 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Hasta</span>
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={e => setFechaHasta(e.target.value)}
+            min={fechaDesde || undefined}
+            className="h-9 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
 
         {selectedVendedor && (
           <>

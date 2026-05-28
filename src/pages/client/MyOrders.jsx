@@ -30,10 +30,12 @@ export default function MyOrders() {
   const { user }   = useAuth()
   const { addItem, clearCart } = useCart()
   const navigate   = useNavigate()
-  const [orders, setOrders]     = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [expanded, setExpanded] = useState(null)
-  const [repeating, setRepeating] = useState(null)
+  const [orders, setOrders]         = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [expanded, setExpanded]     = useState(null)
+  const [repeating, setRepeating]   = useState(null)
+  const [cancelling, setCancelling] = useState(null)   // id del pedido en proceso de cancel
+  const [confirmCancel, setConfirmCancel] = useState(null) // id esperando confirmación
 
   useEffect(() => {
     async function load() {
@@ -56,6 +58,14 @@ export default function MyOrders() {
     }
     load()
   }, [user.id])
+
+  async function handleCancel(orderId) {
+    setCancelling(orderId)
+    await supabase.from('prepedidos').update({ estado: 'cancelado' }).eq('id', orderId)
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, estado: 'cancelado' } : o))
+    setConfirmCancel(null)
+    setCancelling(null)
+  }
 
   function handleRepeat(order) {
     setRepeating(order.id); clearCart()
@@ -171,18 +181,54 @@ export default function MyOrders() {
                         </div>
                       ))}
 
-                      {order.estado !== 'cancelado' && (
-                        <Button
-                          className="w-full my-3 bg-amarillo text-negro hover:bg-amarillo/90 font-bold gap-2"
-                          size="sm"
-                          onClick={() => handleRepeat(order)}
-                          disabled={repeating === order.id}
-                        >
-                          {repeating === order.id
-                            ? <><Loader2 size={14} className="animate-spin" /> Cargando…</>
-                            : <><RefreshCw size={14} /> Repetir este pedido</>}
-                        </Button>
-                      )}
+                      <div className="flex flex-col gap-2 my-3">
+                        {order.estado !== 'cancelado' && (
+                          <Button
+                            className="w-full bg-amarillo text-negro hover:bg-amarillo/90 font-bold gap-2"
+                            size="sm"
+                            onClick={() => handleRepeat(order)}
+                            disabled={repeating === order.id}
+                          >
+                            {repeating === order.id
+                              ? <><Loader2 size={14} className="animate-spin" /> Cargando…</>
+                              : <><RefreshCw size={14} /> Repetir este pedido</>}
+                          </Button>
+                        )}
+
+                        {order.estado === 'pendiente' && (
+                          confirmCancel === order.id ? (
+                            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
+                              <p className="text-xs text-red-700 flex-1 font-semibold">¿Cancelar este pedido?</p>
+                              <Button
+                                size="sm"
+                                className="h-7 px-3 text-xs bg-red-600 text-white hover:bg-red-700 gap-1"
+                                onClick={() => handleCancel(order.id)}
+                                disabled={cancelling === order.id}
+                              >
+                                {cancelling === order.id ? <Loader2 size={12} className="animate-spin" /> : 'Sí, cancelar'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-3 text-xs"
+                                onClick={() => setConfirmCancel(null)}
+                                disabled={cancelling === order.id}
+                              >
+                                No
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="w-full text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                              onClick={() => setConfirmCancel(order.id)}
+                            >
+                              Cancelar pedido
+                            </Button>
+                          )
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

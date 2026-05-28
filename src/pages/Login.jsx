@@ -74,7 +74,12 @@ export default function Login() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Contraseña</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Contraseña</Label>
+                <a href="/olvide-contrasena" className="text-xs text-muted-foreground hover:text-negro underline underline-offset-2">
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
               <Input
                 id="password"
                 type="password"

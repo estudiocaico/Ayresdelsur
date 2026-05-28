@@ -6,6 +6,8 @@ import ClientLayout from './components/ClientLayout'
 // Pages
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Catalog from './pages/client/Catalog'
 import Cart from './pages/client/Cart'
 import OrderConfirmed from './pages/client/OrderConfirmed'
@@ -26,6 +28,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
+          <Route path="/olvide-contrasena" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Rutas del cliente — CartProvider envuelve todas para estado compartido */}
           <Route path="/" element={<PrivateRoute role="cliente" />}>
