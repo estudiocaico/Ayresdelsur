@@ -150,11 +150,11 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
 
   return (
     <div
-      className="bg-white rounded-xl shadow-card flex gap-3 px-3 py-3 animate-card-reveal"
+      className="bg-white rounded-xl shadow-card flex overflow-hidden animate-card-reveal"
       style={{ borderLeft: `3px solid ${catColor ?? 'var(--amarillo)'}` }}
     >
-      {/* Image / placeholder */}
-      <div className="w-[60px] h-[60px] shrink-0 rounded-lg overflow-hidden bg-cream-dark flex items-center justify-center">
+      {/* Imagen — todo el alto de la card, ratio 2:3 */}
+      <div className="self-stretch aspect-[2/3] shrink-0 bg-cream-dark flex items-center justify-center">
         {imgSrc && !imgFailed ? (
           <img
             src={imgSrc}
@@ -171,7 +171,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-2xl"
+            className="w-full h-full flex items-center justify-center text-3xl"
             style={{ background: catColor ? `${catColor}20` : undefined }}
           >
             {CATEGORY_ICONS[product.categorias?.nombre] ?? '📦'}
@@ -180,7 +180,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 px-3 py-3">
         <div className="font-bold text-sm text-negro leading-snug">{product.nombre}</div>
         {product.descripcion && (
           <div className="text-[0.72rem] text-muted-foreground mt-0.5 line-clamp-1">{product.descripcion}</div>
@@ -220,7 +220,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           </div>
         )}
 
-        {/* Price: unit price → ×N u. total (for pack/pallet) */}
+        {/* Price */}
         <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
           <span className="font-display font-bold text-amarillo text-base leading-none">
             {formatPrice(displayPrice)}
@@ -234,7 +234,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col justify-end shrink-0">
+      <div className="flex flex-col justify-end shrink-0 px-3 py-3">
         {cartItem ? (
           <div className="flex items-center gap-1">
             <button
