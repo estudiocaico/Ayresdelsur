@@ -61,8 +61,13 @@ export default function MyOrders() {
 
   async function handleCancel(orderId) {
     setCancelling(orderId)
-    await supabase.from('prepedidos').update({ estado: 'cancelado' }).eq('id', orderId)
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, estado: 'cancelado' } : o))
+    const { error } = await supabase
+      .from('prepedidos')
+      .update({ estado: 'cancelado' })
+      .eq('id', orderId)
+    if (!error) {
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, estado: 'cancelado' } : o))
+    }
     setConfirmCancel(null)
     setCancelling(null)
   }
