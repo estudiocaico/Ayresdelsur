@@ -97,6 +97,7 @@ export function CartProvider({ children }) {
         presentacion,
         qty,
         unit:         product.unidad,
+        categoryName: product.categorias?.nombre ?? null,
         promoN:       promoMeta?.promoN      ?? null,
         promoM:       promoMeta?.promoM      ?? null,
         promoQtyMin:  promoMeta?.promoQtyMin ?? null,

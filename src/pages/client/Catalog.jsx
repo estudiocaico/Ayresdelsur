@@ -457,7 +457,7 @@ export default function Catalog() {
         const ids = [...new Set(promoRows.map(p => p.producto_id))]
         const { data: promoProds } = await supabase
           .from('productos')
-          .select('id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad')
+          .select('id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad, categorias(nombre)')
           .in('id', ids)
         const prodMap = Object.fromEntries((promoProds ?? []).map(p => [p.id, p]))
         setPromos(promoRows.map(p => ({ ...p, productos: prodMap[p.producto_id] ?? null })))

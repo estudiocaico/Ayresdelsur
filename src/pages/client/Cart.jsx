@@ -12,6 +12,18 @@ function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }
 
+const CATEGORY_COLORS = {
+  'Almacen':             '#5B8C5A',
+  'Almacén':             '#5B8C5A',
+  'Bebidas':             '#2E85C8',
+  'Bebidas Alcoholicas': '#C4873A',
+  'Bebidas Alcohólicas': '#C4873A',
+  'Lacteos':             '#2E85C8',
+  'Lácteos':             '#2E85C8',
+  'Limpieza':            '#5B7FA6',
+  'Snacks':              '#C4873A',
+}
+
 function buildWAMessage({ refNum, total, clienteNombre, items }) {
   const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const limite = 10
@@ -133,7 +145,8 @@ export default function Cart() {
               {items.map(item => (
                 <div
                   key={item.key}
-                  className="bg-white rounded-xl shadow-card border-l-[3px] border-l-amarillo px-3.5 py-3.5 flex gap-3"
+                  className="bg-white rounded-xl shadow-card px-3.5 py-3.5 flex gap-3"
+                  style={{ borderLeft: `3px solid ${CATEGORY_COLORS[item.categoryName] ?? 'var(--amarillo)'}` }}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm leading-snug">{item.name}</div>
@@ -175,7 +188,7 @@ export default function Cart() {
                           ) : (
                             <>
                               <span className="text-[0.65rem] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
-                                Falta{falta > 1 ? `n ${falta}` : ''} {falta === 1 ? '1 u.' : `${falta} u.`} para {item.promoDesc}% OFF
+                                {falta === 1 ? 'Falta 1 u.' : `Faltan ${falta} u.`} para {item.promoDesc}% OFF
                               </span>
                               <span className="text-xs text-muted-foreground">{formatPrice(item.price)} c/u</span>
                             </>
