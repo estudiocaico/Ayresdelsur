@@ -155,71 +155,47 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
 
   return (
     <div
-      className="snap-start flex-none relative rounded-2xl overflow-hidden shadow-panel"
-      style={{ width: 'min(78vw, 260px)', height: '168px' }}
+      className="snap-start flex-none rounded-2xl overflow-hidden shadow-panel bg-negro flex"
+      style={{ width: 'min(78vw, 264px)', height: '152px' }}
     >
-      {/* Background image */}
-      {imgSrc && !imgFailed ? (
-        <img
-          src={imgSrc}
-          alt={product.nombre}
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={() => {
-            if (imgSrc.includes('front_es.400.jpg')) {
-              setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
-            } else {
-              setImgFailed(true)
-            }
-          }}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-negro flex items-center justify-end pr-4">
-          <span className="text-6xl opacity-20">📦</span>
-        </div>
-      )}
+      {/* Left: text content */}
+      <div className="flex flex-col justify-between p-3 flex-1 min-w-0">
 
-      {/* Dark gradient overlay from left */}
-      <div className="absolute inset-0 bg-gradient-to-r from-negro/95 via-negro/65 to-transparent" />
+        {/* Promo badge */}
+        <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full self-start">
+          <Zap size={8} /> {badge}
+        </span>
 
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-3.5">
-        {/* Top: promo badge */}
+        {/* Name + text + price + cart */}
         <div>
-          <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.62rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
-            <Zap size={9} /> {badge}
-          </span>
-        </div>
-
-        {/* Bottom: name + price + cart */}
-        <div>
-          <div className="font-bold text-white text-sm leading-tight line-clamp-2">{product.nombre}</div>
+          <div className="font-bold text-white text-[0.8rem] leading-snug line-clamp-2">{product.nombre}</div>
           {promo.texto && (
-            <div className="text-[0.68rem] text-white/65 mt-0.5 line-clamp-1">{promo.texto}</div>
+            <div className="text-[0.65rem] text-white/60 mt-0.5 line-clamp-1">{promo.texto}</div>
           )}
-          <div className="flex items-center justify-between mt-2 gap-2">
+          <div className="flex items-center justify-between mt-1.5 gap-1.5">
             {/* Prices */}
             <div className="flex flex-col leading-none">
               {hasDiscount && (
-                <span className="text-[0.65rem] text-white/50 line-through">{formatPrice(basePrice)}</span>
+                <span className="text-[0.62rem] text-white/45 line-through">{formatPrice(basePrice)}</span>
               )}
-              <span className="font-display font-extrabold text-amarillo text-base leading-tight">
+              <span className="font-display font-extrabold text-amarillo text-[0.95rem] leading-tight">
                 {formatPrice(effectivePrice)}
               </span>
               {promo.tipo_promo === 'nxm' && (
-                <span className="text-[0.6rem] text-white/50 mt-0.5">por unidad</span>
+                <span className="text-[0.58rem] text-white/45 mt-0.5">por unidad</span>
               )}
             </div>
 
             {/* Cart controls */}
             {cartItem ? (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => onUpdate(key, cartItem.qty - 1)}
                   className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-colors"
                 >
                   <Minus size={10} />
                 </button>
-                <span className="font-display font-extrabold text-sm text-white min-w-[18px] text-center">{cartItem.qty}</span>
+                <span className="font-display font-extrabold text-sm text-white min-w-[16px] text-center">{cartItem.qty}</span>
                 <button
                   onClick={() => onUpdate(key, cartItem.qty + 1)}
                   className="w-6 h-6 rounded-full bg-amarillo hover:bg-amarillo/80 text-negro flex items-center justify-center transition-colors"
@@ -230,12 +206,34 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
             ) : (
               <button
                 onClick={handleAdd}
-                className="bg-amarillo text-negro hover:bg-amarillo/80 rounded-lg px-2.5 py-1 text-[0.7rem] font-extrabold transition-colors whitespace-nowrap"
+                className="shrink-0 bg-amarillo text-negro hover:bg-amarillo/80 rounded-lg px-2 py-1 text-[0.67rem] font-extrabold transition-colors whitespace-nowrap"
               >
-                {addQty > 1 ? `+ ${addQty} u.` : '+ Agregar'}
+                {addQty > 1 ? `+${addQty}u.` : '+ Agregar'}
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Right: product image — same height as card, with padding */}
+      <div className="shrink-0 p-2 pl-1" style={{ width: '100px' }}>
+        <div className="w-full h-full rounded-xl overflow-hidden bg-white/8">
+          {imgSrc && !imgFailed ? (
+            <img
+              src={imgSrc}
+              alt={product.nombre}
+              className="w-full h-full object-cover"
+              onError={() => {
+                if (imgSrc.includes('front_es.400.jpg')) {
+                  setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
+                } else {
+                  setImgFailed(true)
+                }
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">📦</div>
+          )}
         </div>
       </div>
     </div>
