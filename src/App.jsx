@@ -19,6 +19,7 @@ import AdminProducts from './pages/admin/Products'
 import AdminImport from './pages/admin/ImportExcel'
 import AdminVendedores from './pages/admin/Vendedores'
 import AdminConfiguracion from './pages/admin/Configuracion'
+import AdminPromociones from './pages/admin/Promociones'
 import MyOrders from './pages/client/MyOrders'
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="vendedores" element={<AdminVendedores />} />
             <Route path="productos" element={<AdminProducts />} />
             <Route path="importar" element={<AdminImport />} />
+            <Route path="promociones" element={<AdminPromociones />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
           </Route>
 

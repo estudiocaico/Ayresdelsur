@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { cn } from '@/lib/utils'
-import { Search, Minus, Plus, Loader2 } from 'lucide-react'
+import { Search, Minus, Plus, Loader2, Zap } from 'lucide-react'
 
 const CATEGORY_ICONS = {
   'Almacen':             '🧂',
@@ -96,6 +96,104 @@ function hasPallet(product, variant) {
 
 const PRES_LABELS = { unidad: 'Unidad', pack: 'Pack', pallet: 'Pallet' }
 
+// ─── PromoCard ────────────────────────────────────────────────────────────────
+function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
+  const product = promo.productos
+  const [imgFailed, setImgFailed] = useState(false)
+  const [imgSrc, setImgSrc]       = useState(product?.imagen_url ?? null)
+
+  // Use unidad price for the promo slider (no variant/presentation selector)
+  const price = getPrecioBase(product, listaPrecio)
+
+  const key      = `${product?.id}-base-unidad`
+  const cartItem = cartItems.find(i => i.key === key)
+
+  function handleAdd() {
+    if (!product) return
+    onAdd(product, 1, null, '', price, 'unidad')
+  }
+
+  if (!product || price == null) return null
+
+  return (
+    <div
+      className="snap-start flex-none relative rounded-2xl overflow-hidden shadow-panel"
+      style={{ width: 'min(78vw, 260px)', height: '160px' }}
+    >
+      {/* Background image with gradient overlay */}
+      {imgSrc && !imgFailed ? (
+        <img
+          src={imgSrc}
+          alt={product.nombre}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={() => {
+            if (imgSrc.includes('front_es.400.jpg')) {
+              setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
+            } else {
+              setImgFailed(true)
+            }
+          }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-negro flex items-center justify-end pr-4">
+          <span className="text-6xl opacity-20">📦</span>
+        </div>
+      )}
+
+      {/* Dark gradient overlay from left */}
+      <div className="absolute inset-0 bg-gradient-to-r from-negro/95 via-negro/70 to-transparent" />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-3.5">
+        {/* Top: badge */}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
+            <Zap size={9} /> Destacado
+          </span>
+        </div>
+
+        {/* Bottom: info + cart */}
+        <div>
+          <div className="font-bold text-white text-sm leading-tight line-clamp-2">{product.nombre}</div>
+          {promo.texto && (
+            <div className="text-[0.68rem] text-white/70 mt-0.5 line-clamp-1">{promo.texto}</div>
+          )}
+          <div className="flex items-center justify-between mt-2 gap-2">
+            <span className="font-display font-extrabold text-amarillo text-base leading-none">
+              {formatPrice(price)}
+            </span>
+            {cartItem ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onUpdate(key, cartItem.qty - 1)}
+                  className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-colors"
+                >
+                  <Minus size={10} />
+                </button>
+                <span className="font-display font-extrabold text-sm text-white min-w-[16px] text-center">{cartItem.qty}</span>
+                <button
+                  onClick={() => onUpdate(key, cartItem.qty + 1)}
+                  className="w-6 h-6 rounded-full bg-amarillo hover:bg-amarillo/80 text-negro flex items-center justify-center transition-colors"
+                >
+                  <Plus size={10} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleAdd}
+                className="bg-amarillo text-negro hover:bg-amarillo/80 rounded-lg px-2.5 py-1 text-[0.7rem] font-extrabold transition-colors whitespace-nowrap"
+              >
+                + Agregar
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ProductCard ──────────────────────────────────────────────────────────────
 function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [selectedVariant, setSelectedVariant] = useState(product.variantes_producto?.[0] ?? null)
   const [presentacion, setPresentacion]       = useState('unidad')
@@ -270,6 +368,7 @@ export default function Catalog() {
   const { user } = useAuth()
   const [products, setProducts]             = useState([])
   const [categories, setCategories]         = useState([])
+  const [promos, setPromos]                 = useState([])
   const [loading, setLoading]               = useState(true)
   const [search, setSearch]                 = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
@@ -278,7 +377,7 @@ export default function Catalog() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: prods }, { data: cats }, { data: cliente }] = await Promise.all([
+      const [{ data: prods }, { data: cats }, { data: cliente }, { data: promoData }] = await Promise.all([
         supabase
           .from('productos')
           .select('*, categorias(nombre), variantes_producto(*)')
@@ -293,10 +392,16 @@ export default function Catalog() {
           .from('clientes')
           .select('lista_precios')
           .eq('user_id', user.id)
-          .single()
+          .single(),
+        supabase
+          .from('promociones')
+          .select('id, texto, orden, productos(id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad)')
+          .eq('activo', true)
+          .order('orden'),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
+      setPromos(promoData ?? [])
       if (cliente?.lista_precios) setListaPrecio(cliente.lista_precios)
       setLoading(false)
     }
@@ -373,6 +478,28 @@ export default function Catalog() {
           })}
         </div>
       </div>
+
+      {/* Promo slider */}
+      {promos.length > 0 && (
+        <div className="max-w-[600px] mx-auto pt-3.5 pb-1">
+          <div className="flex items-center gap-1.5 px-4 mb-2">
+            <Zap size={13} className="text-amarillo" />
+            <span className="text-[0.72rem] font-extrabold uppercase tracking-widest text-negro/60">Destacados</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {promos.map(promo => (
+              <PromoCard
+                key={promo.id}
+                promo={promo}
+                listaPrecio={listaPrecio}
+                cartItems={items}
+                onAdd={addItem}
+                onUpdate={updateQty}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Product list */}
       <div className="max-w-[600px] mx-auto px-4 pt-4 pb-28">

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ClipboardList, Users, UserCheck,
-  Package, Upload, Settings, LogOut, Menu, X,
+  Package, Upload, Settings, LogOut, Menu, X, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -16,6 +16,7 @@ const links = [
   { to: '/admin/vendedores',    label: 'Vendedores',    icon: UserCheck },
   { to: '/admin/productos',     label: 'Productos',     icon: Package },
   { to: '/admin/importar',      label: 'Importar',      icon: Upload },
+  { to: '/admin/promociones',   label: 'Promociones',   icon: Star },
   { to: '/admin/configuracion', label: 'Configuración', icon: Settings },
 ]
 
