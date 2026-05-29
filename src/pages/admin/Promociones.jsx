@@ -15,16 +15,17 @@ const ALL_LISTAS   = ['minorista', 'mediano', 'mayorista']
 const LISTA_LABELS = { minorista: 'Minorista', mediano: 'Mediano', mayorista: 'Mayorista' }
 
 const TIPO_OPTIONS = [
-  { value: 'nxm',                label: 'NxM  (2x1, 3x2…)',          desc: 'Llevá N unidades, pagá M' },
+  { value: 'destacado',          label: 'Solo destacado',             desc: 'Aparece en el slider sin modificar el precio' },
+  { value: 'nxm',               label: 'NxM  (2x1, 3x2…)',           desc: 'Llevá N unidades, pagá M' },
   { value: 'descuento_porcentual', label: 'Descuento %',             desc: 'Porcentaje de descuento sobre el precio base' },
-  { value: 'precio_especial',    label: 'Precio especial',            desc: 'Precio fijo promocional (reemplaza el precio base)' },
-  { value: 'cantidad_minima',    label: 'Descuento por cantidad',     desc: 'Descuento % si el cliente lleva mínimo X unidades' },
+  { value: 'precio_especial',   label: 'Precio especial',             desc: 'Precio fijo promocional (reemplaza el precio base)' },
+  { value: 'cantidad_minima',   label: 'Descuento por cantidad',      desc: 'Descuento % si el cliente lleva mínimo X unidades' },
 ]
 
 const EMPTY_FORM = {
   producto_id: '', texto: '', orden: 0, activo: true,
   listas_precios: [...ALL_LISTAS],
-  tipo_promo: 'descuento_porcentual',
+  tipo_promo: 'destacado',
   descuento_porcentaje: 20,
   precio_promo: '',
   promo_n: 2, promo_m: 1,
@@ -33,11 +34,12 @@ const EMPTY_FORM = {
 
 function promoLabel(p) {
   switch (p.tipo_promo) {
+    case 'destacado':            return 'Destacado'
     case 'nxm':                 return `${p.promo_n}x${p.promo_m}`
     case 'descuento_porcentual': return `${p.descuento_porcentaje}% OFF`
     case 'precio_especial':     return 'Precio especial'
     case 'cantidad_minima':     return `+${p.qty_minima}u → ${p.descuento_porcentaje}% OFF`
-    default:                    return '—'
+    default:                    return 'Destacado'
   }
 }
 

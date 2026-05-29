@@ -110,13 +110,13 @@ function calcEffectivePrice(promo, basePrice) {
     case 'cantidad_minima':
       if (!promo.descuento_porcentaje) return basePrice
       return basePrice * (1 - promo.descuento_porcentaje / 100)
-    default:
+    default: // 'destacado' y cualquier otro: sin cambio de precio
       return basePrice
   }
 }
 
 function calcAddQty(promo) {
-  if (promo.tipo_promo === 'nxm')           return promo.promo_n ?? 1
+  if (promo.tipo_promo === 'nxm')            return promo.promo_n ?? 1
   if (promo.tipo_promo === 'cantidad_minima') return promo.qty_minima ?? 1
   return 1
 }
@@ -127,7 +127,7 @@ function promoBadge(promo) {
     case 'descuento_porcentual': return `${promo.descuento_porcentaje}% OFF`
     case 'precio_especial':      return 'OFERTA'
     case 'cantidad_minima':      return `+${promo.qty_minima}u → ${promo.descuento_porcentaje}% OFF`
-    default:                     return 'DESTACADO'
+    default:                     return 'DESTACADO' // 'destacado' y valores legacy
   }
 }
 
