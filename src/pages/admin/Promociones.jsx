@@ -13,19 +13,50 @@ function formatPrice(n) {
 
 const ALL_LISTAS   = ['minorista', 'mediano', 'mayorista']
 const LISTA_LABELS = { minorista: 'Minorista', mediano: 'Mediano', mayorista: 'Mayorista' }
+const PRES_LABELS  = { unidad: 'Unidad', pack: 'Pack', pallet: 'Pallet' }
 
 const TIPO_OPTIONS = [
-  { value: 'destacado',          label: 'Solo destacado',             desc: 'Aparece en el slider sin modificar el precio' },
-  { value: 'nxm',               label: 'NxM  (2x1, 3x2…)',           desc: 'Llevá N unidades, pagá M' },
-  { value: 'descuento_porcentual', label: 'Descuento %',             desc: 'Porcentaje de descuento sobre el precio base' },
-  { value: 'precio_especial',   label: 'Precio especial',             desc: 'Precio fijo promocional (reemplaza el precio base)' },
-  { value: 'cantidad_minima',   label: 'Descuento por cantidad',      desc: 'Descuento % si el cliente lleva mínimo X unidades' },
+  { value: 'destacado',            label: 'Solo destacado',         desc: 'Aparece en el slider sin modificar el precio' },
+  { value: 'nxm',                  label: 'NxM  (2x1, 3x2…)',       desc: 'Llevá N unidades, pagá M' },
+  { value: 'descuento_porcentual', label: 'Descuento %',            desc: 'Porcentaje de descuento sobre el precio base' },
+  { value: 'precio_especial',      label: 'Precio especial',        desc: 'Precio fijo promocional (reemplaza el precio base)' },
+  { value: 'cantidad_minima',      label: 'Descuento por cantidad', desc: 'Descuento % si el cliente lleva mínimo X unidades' },
 ]
+
+/**
+ * Returns the total price for a product+presentation+lista tier.
+ * For pack/pallet: per-unit price × units = pack/pallet total.
+ * For unidad: standard tier price.
+ */
+function getPresTotal(product, presentacion, lista) {
+  if (!product) return null
+  if (presentacion === 'pack') {
+    const up = (lista === 'mayorista' ? product.precio_pack_mayorista
+              : lista === 'mediano'   ? product.precio_pack_mediano
+              :                         product.precio_pack) ?? product.precio_pack
+    if (up == null) return null
+    const u = product.unidades_pack ?? 1
+    return up * u
+  }
+  if (presentacion === 'pallet') {
+    const up = (lista === 'mayorista' ? product.precio_pallet_mayorista
+              : lista === 'mediano'   ? product.precio_pallet_mediano
+              :                         product.precio_pallet) ?? product.precio_pallet
+    if (up == null) return null
+    const u = product.unidades_pallet ?? 1
+    return up * u
+  }
+  // 'unidad'
+  if (lista === 'mayorista' && product.precio_mayorista != null) return product.precio_mayorista
+  if (lista === 'mediano'   && product.precio_mediano   != null) return product.precio_mediano
+  return product.precio
+}
 
 const EMPTY_FORM = {
   producto_id: '', texto: '', orden: 0, activo: true,
   listas_precios: [...ALL_LISTAS],
   tipo_promo: 'destacado',
+  presentacion: 'unidad',
   descuento_porcentaje: 20,
   precio_promo: '',
   promo_n: 2, promo_m: 1,
@@ -35,11 +66,11 @@ const EMPTY_FORM = {
 function promoLabel(p) {
   switch (p.tipo_promo) {
     case 'destacado':            return 'Destacado'
-    case 'nxm':                 return `${p.promo_n}x${p.promo_m}`
+    case 'nxm':                  return `${p.promo_n}x${p.promo_m}`
     case 'descuento_porcentual': return `${p.descuento_porcentaje}% OFF`
-    case 'precio_especial':     return 'Precio especial'
-    case 'cantidad_minima':     return `+${p.qty_minima}u → ${p.descuento_porcentaje}% OFF`
-    default:                    return 'Destacado'
+    case 'precio_especial':      return 'Precio especial'
+    case 'cantidad_minima':      return `+${p.qty_minima}u → ${p.descuento_porcentaje}% OFF`
+    default:                     return 'Destacado'
   }
 }
 
@@ -57,9 +88,11 @@ export default function Promociones() {
   async function load() {
     const [{ data: promoData }, { data: prodData }] = await Promise.all([
       supabase.from('promociones')
-        .select('id, texto, orden, activo, listas_precios, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima, productos(id, nombre, precio, precio_mediano, precio_mayorista, imagen_url)')
+        .select('id, texto, orden, activo, listas_precios, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima, presentacion, productos(id, nombre, precio, precio_mediano, precio_mayorista, precio_pack, precio_pack_mediano, precio_pack_mayorista, precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, unidades_pack, unidades_pallet, imagen_url)')
         .order('orden'),
-      supabase.from('productos').select('id, nombre, precio, precio_mediano, precio_mayorista').eq('activo', true).order('nombre'),
+      supabase.from('productos')
+        .select('id, nombre, precio, precio_mediano, precio_mayorista, precio_pack, precio_pack_mediano, precio_pack_mayorista, precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, unidades_pack, unidades_pallet')
+        .eq('activo', true).order('nombre'),
     ])
     setPromos(promoData ?? [])
     setProducts(prodData ?? [])
@@ -83,6 +116,7 @@ export default function Promociones() {
       activo:               promo.activo,
       listas_precios:       promo.listas_precios ?? [...ALL_LISTAS],
       tipo_promo:           promo.tipo_promo ?? 'descuento_porcentual',
+      presentacion:         promo.presentacion ?? 'unidad',
       descuento_porcentaje: promo.descuento_porcentaje ?? 20,
       precio_promo:         promo.precio_promo ?? '',
       promo_n:              promo.promo_n ?? 2,
@@ -98,18 +132,19 @@ export default function Promociones() {
     if (!form.producto_id) return
     setSaving(true)
     const payload = {
-      producto_id:   form.producto_id,
-      texto:         form.texto || null,
-      orden:         Number(form.orden) || 0,
-      activo:        form.activo,
-      listas_precios: form.listas_precios.length ? form.listas_precios : [...ALL_LISTAS],
-      tipo_promo:    form.tipo_promo,
+      producto_id:          form.producto_id,
+      texto:                form.texto || null,
+      orden:                Number(form.orden) || 0,
+      activo:               form.activo,
+      listas_precios:       form.listas_precios.length ? form.listas_precios : [...ALL_LISTAS],
+      tipo_promo:           form.tipo_promo,
+      presentacion:         form.presentacion,
       descuento_porcentaje: ['descuento_porcentual', 'cantidad_minima'].includes(form.tipo_promo)
                               ? Number(form.descuento_porcentaje) : null,
-      precio_promo:  form.tipo_promo === 'precio_especial' ? Number(form.precio_promo) : null,
-      promo_n:       form.tipo_promo === 'nxm' ? Number(form.promo_n) : null,
-      promo_m:       form.tipo_promo === 'nxm' ? Number(form.promo_m) : null,
-      qty_minima:    form.tipo_promo === 'cantidad_minima' ? Number(form.qty_minima) : null,
+      precio_promo:         form.tipo_promo === 'precio_especial' ? Number(form.precio_promo) : null,
+      promo_n:              form.tipo_promo === 'nxm' ? Number(form.promo_n) : null,
+      promo_m:              form.tipo_promo === 'nxm' ? Number(form.promo_m) : null,
+      qty_minima:           form.tipo_promo === 'cantidad_minima' ? Number(form.qty_minima) : null,
     }
     if (editId) await supabase.from('promociones').update(payload).eq('id', editId)
     else        await supabase.from('promociones').insert(payload)
@@ -127,8 +162,9 @@ export default function Promociones() {
     setPromos(prev => prev.map(p => p.id === promo.id ? { ...p, activo: !p.activo } : p))
   }
 
-  // Reference product for the form
-  const refProduct = products.find(p => p.id === form.producto_id)
+  // Reference product + base price (minorista) for live previews in form
+  const refProduct   = products.find(p => p.id === form.producto_id)
+  const refBasePrice = refProduct ? getPresTotal(refProduct, form.presentacion, 'minorista') : null
 
   return (
     <AdminLayout>
@@ -169,12 +205,44 @@ export default function Promociones() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Presentación */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Presentación</Label>
+              <div className="flex gap-2">
+                {['unidad', 'pack', 'pallet'].map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, presentacion: p }))}
+                    className={cn(
+                      'px-4 py-1.5 rounded-lg text-sm font-semibold border transition-colors',
+                      form.presentacion === p
+                        ? 'bg-negro text-white border-negro'
+                        : 'bg-white text-negro border-border hover:border-negro/30'
+                    )}
+                  >
+                    {PRES_LABELS[p]}
+                  </button>
+                ))}
+              </div>
+              {/* Prices for the selected presentation across all lists */}
               {refProduct && (
                 <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
-                  <span>Minorista: <strong className="text-negro">{formatPrice(refProduct.precio)}</strong></span>
-                  {refProduct.precio_mediano  && <span>Mediano: <strong className="text-negro">{formatPrice(refProduct.precio_mediano)}</strong></span>}
-                  {refProduct.precio_mayorista && <span>Mayorista: <strong className="text-negro">{formatPrice(refProduct.precio_mayorista)}</strong></span>}
+                  {ALL_LISTAS.map(lista => {
+                    const total = getPresTotal(refProduct, form.presentacion, lista)
+                    if (total == null) return null
+                    return (
+                      <span key={lista}>{LISTA_LABELS[lista]}: <strong className="text-negro">{formatPrice(total)}</strong></span>
+                    )
+                  })}
                 </div>
+              )}
+              {refProduct && form.presentacion !== 'unidad' && refBasePrice == null && (
+                <p className="text-xs text-orange-600 font-medium">
+                  ⚠️ Este producto no tiene precio de {PRES_LABELS[form.presentacion].toLowerCase()} configurado.
+                </p>
               )}
             </div>
 
@@ -219,7 +287,7 @@ export default function Promociones() {
                 {Number(form.promo_n) > 0 && Number(form.promo_m) > 0 && (
                   <div className="mb-2 text-sm font-bold text-amarillo bg-amarillo/10 px-3 py-1.5 rounded-lg border border-amarillo/30">
                     {form.promo_n}x{form.promo_m} — el cliente lleva {form.promo_n} y paga {form.promo_m}
-                    {refProduct && ` → ${formatPrice(refProduct.precio * form.promo_m / form.promo_n)} c/u`}
+                    {refBasePrice != null && ` → ${formatPrice(refBasePrice * form.promo_m / form.promo_n)} c/u`}
                   </div>
                 )}
               </div>
@@ -233,9 +301,9 @@ export default function Promociones() {
                     value={form.descuento_porcentaje}
                     onChange={e => setForm(f => ({ ...f, descuento_porcentaje: e.target.value }))} />
                   <span className="text-sm font-bold text-amarillo">{form.descuento_porcentaje}% OFF</span>
-                  {refProduct && (
+                  {refBasePrice != null && (
                     <span className="text-xs text-muted-foreground">
-                      Precio final: <strong className="text-negro">{formatPrice(refProduct.precio * (1 - form.descuento_porcentaje / 100))}</strong>
+                      Precio final: <strong className="text-negro">{formatPrice(refBasePrice * (1 - form.descuento_porcentaje / 100))}</strong>
                     </span>
                   )}
                 </div>
@@ -250,9 +318,9 @@ export default function Promociones() {
                     placeholder="Ej: 1500"
                     value={form.precio_promo}
                     onChange={e => setForm(f => ({ ...f, precio_promo: e.target.value }))} />
-                  {refProduct && form.precio_promo && (
+                  {refBasePrice != null && form.precio_promo && (
                     <span className="text-xs text-muted-foreground">
-                      Ahorro: <strong className="text-green-600">{formatPrice(refProduct.precio - form.precio_promo)}</strong>
+                      Ahorro: <strong className="text-green-600">{formatPrice(refBasePrice - form.precio_promo)}</strong>
                     </span>
                   )}
                 </div>
@@ -275,7 +343,7 @@ export default function Promociones() {
                 </div>
                 <div className="mb-2 text-sm font-bold text-amarillo bg-amarillo/10 px-3 py-1.5 rounded-lg border border-amarillo/30">
                   +{form.qty_minima}u → {form.descuento_porcentaje}% OFF
-                  {refProduct && ` → ${formatPrice(refProduct.precio * (1 - form.descuento_porcentaje / 100))} c/u`}
+                  {refBasePrice != null && ` → ${formatPrice(refBasePrice * (1 - form.descuento_porcentaje / 100))} c/u`}
                 </div>
               </div>
             )}
@@ -391,10 +459,16 @@ export default function Promociones() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm text-negro truncate">{product?.nombre ?? '—'}</div>
                   <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    {/* Promo badge */}
+                    {/* Promo type badge */}
                     <span className="inline-flex items-center gap-1 text-[0.62rem] font-extrabold uppercase bg-amarillo/15 text-amarillo px-2 py-0.5 rounded-full border border-amarillo/30">
                       <Tag size={9} /> {promoLabel(promo)}
                     </span>
+                    {/* Presentation tag (only when not 'unidad') */}
+                    {promo.presentacion && promo.presentacion !== 'unidad' && (
+                      <span className="text-[0.6rem] font-bold uppercase border border-negro/20 text-negro/60 px-1.5 py-0.5 rounded-full">
+                        {PRES_LABELS[promo.presentacion] ?? promo.presentacion}
+                      </span>
+                    )}
                     {/* Lista tags */}
                     {(promo.listas_precios ?? ALL_LISTAS).map(l => (
                       <span key={l} className="text-[0.6rem] font-bold uppercase bg-cream-dark text-negro/50 px-1.5 py-0.5 rounded-full">

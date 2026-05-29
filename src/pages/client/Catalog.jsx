@@ -137,27 +137,35 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [imgFailed, setImgFailed] = useState(false)
   const [imgSrc, setImgSrc]       = useState(product?.imagen_url ?? null)
 
-  const basePrice      = product ? getPrecioBase(product, listaPrecio) : null
+  const presentacion     = promo.presentacion ?? 'unidad'
+  const unitPriceForPres = product ? getPrecioByPresentation(product, null, listaPrecio, presentacion) : null
+  const unidades = presentacion === 'pack'
+    ? (product?.unidades_pack ?? null)
+    : presentacion === 'pallet'
+    ? (product?.unidades_pallet ?? null)
+    : null
+  // basePrice = total price for this presentation (pack total / pallet total / unit price)
+  const basePrice      = (unidades && unitPriceForPres != null) ? unitPriceForPres * unidades : unitPriceForPres
   const effectivePrice = basePrice != null ? calcEffectivePrice(promo, basePrice) : null
   const hasDiscount    = effectivePrice != null && basePrice != null && Math.round(effectivePrice) < Math.round(basePrice)
   const addQty         = calcAddQty(promo)
   const badge          = promoBadge(promo)
+  // Per-unit effective price for pack/pallet (for display)
+  const effUnitPrice   = (unidades && unidades > 1 && effectivePrice != null) ? effectivePrice / unidades : null
 
-  const key      = `${product?.id}-base-unidad`
+  const key      = `${product?.id}-base-${presentacion}`
   const cartItem = cartItems.find(i => i.key === key)
 
   function handleAdd() {
     if (!product || effectivePrice == null) return
     if (promo.tipo_promo === 'nxm' && promo.promo_n && promo.promo_m) {
-      // Precio BASE + metadatos: calcItemTotal aplica la lógica por grupos
-      onAdd(product, addQty, null, badge, basePrice, 'unidad',
+      onAdd(product, addQty, null, badge, basePrice, presentacion,
         { promoN: promo.promo_n, promoM: promo.promo_m })
     } else if (promo.tipo_promo === 'cantidad_minima' && promo.qty_minima && promo.descuento_porcentaje) {
-      // Precio BASE + mínimo + descuento: calcItemTotal aplica según qty >= mínimo
-      onAdd(product, addQty, null, badge, basePrice, 'unidad',
+      onAdd(product, addQty, null, badge, basePrice, presentacion,
         { promoQtyMin: promo.qty_minima, promoDesc: promo.descuento_porcentaje })
     } else {
-      onAdd(product, addQty, null, badge, effectivePrice, 'unidad')
+      onAdd(product, addQty, null, badge, effectivePrice, presentacion)
     }
   }
 
@@ -171,10 +179,17 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
       {/* Left: text content */}
       <div className="flex flex-col justify-between p-3 flex-1 min-w-0">
 
-        {/* Promo badge */}
-        <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full self-start">
-          <Zap size={8} /> {badge}
-        </span>
+        {/* Promo badge + presentation label */}
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
+            <Zap size={8} /> {badge}
+          </span>
+          {presentacion !== 'unidad' && (
+            <span className="text-[0.58rem] font-bold uppercase text-white/50 leading-none">
+              {presentacion === 'pack' ? 'Pack' : 'Pallet'}
+            </span>
+          )}
+        </div>
 
         {/* Name + text + price + cart */}
         <div>
@@ -193,6 +208,9 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
               </span>
               {promo.tipo_promo === 'nxm' && (
                 <span className="text-[0.58rem] text-white/45 mt-0.5">c/u en grupo de {promo.promo_n}</span>
+              )}
+              {effUnitPrice != null && (
+                <span className="text-[0.58rem] text-white/45 mt-0.5">{formatPrice(effUnitPrice)} c/u</span>
               )}
             </div>
 
@@ -348,14 +366,14 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
 
         {/* Presentation selector (Unidad / Pack / Pallet) */}
         {hasMultiplePres && (
-          <div className="flex gap-1 mt-1.5 flex-wrap">
+          <div className="flex gap-0.5 mt-1.5">
             {['unidad', ...(showPack ? ['pack'] : []), ...(showPallet ? ['pallet'] : [])].map(p => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPresentacion(p)}
                 className={cn(
-                  'px-2.5 py-0.5 rounded-full text-[0.68rem] font-semibold border transition-colors',
+                  'flex-1 py-0.5 rounded-full text-[0.65rem] font-semibold border transition-colors text-center whitespace-nowrap',
                   presentacion === p
                     ? 'bg-negro text-white border-negro'
                     : 'bg-white text-negro border-border hover:border-negro/50'
@@ -372,9 +390,13 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           <span className="font-display font-bold text-amarillo text-base leading-none">
             {formatPrice(displayPrice)}
           </span>
-          {unidadesPres && unidadesPres > 1 && (
-            <span className="text-[0.7rem] text-muted-foreground">
-              ×{unidadesPres} u. <strong className="text-negro">{formatPrice(totalPrice)}</strong>
+          {/* Always reserve height when multiple presentations exist (prevents micro-jumps) */}
+          {hasMultiplePres && (
+            <span className={cn(
+              "text-[0.7rem] text-muted-foreground",
+              (!unidadesPres || unidadesPres <= 1) && "invisible"
+            )}>
+              ×{unidadesPres ?? 1} u. = <strong className="text-negro">{formatPrice(totalPrice)}</strong>
             </span>
           )}
         </div>
@@ -449,7 +471,7 @@ export default function Catalog() {
       // Step 2: load promos separately (two-step to avoid FK-join cache issues)
       const { data: promoRows } = await supabase
         .from('promociones')
-        .select('id, texto, orden, listas_precios, producto_id, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima')
+        .select('id, texto, orden, listas_precios, producto_id, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima, presentacion')
         .eq('activo', true)
         .order('orden')
 
@@ -457,7 +479,7 @@ export default function Catalog() {
         const ids = [...new Set(promoRows.map(p => p.producto_id))]
         const { data: promoProds } = await supabase
           .from('productos')
-          .select('id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad, categorias(nombre)')
+          .select('id, nombre, precio, precio_mediano, precio_mayorista, precio_pack, precio_pack_mediano, precio_pack_mayorista, precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, imagen_url, unidad, unidades_pack, unidades_pallet, categorias(nombre)')
           .in('id', ids)
         const prodMap = Object.fromEntries((promoProds ?? []).map(p => [p.id, p]))
         setPromos(promoRows.map(p => ({ ...p, productos: prodMap[p.producto_id] ?? null })))
