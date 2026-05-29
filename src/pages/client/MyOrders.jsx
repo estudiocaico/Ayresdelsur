@@ -179,8 +179,8 @@ export default function MyOrders() {
                             {item.presentacion && item.presentacion !== 'unidad' && (
                               <span className={`inline-flex items-center gap-0.5 text-[0.58rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
                                 item.presentacion === 'pack'
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
-                                  : 'bg-green-100 text-green-700 border-green-200'
+                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                  : 'bg-green-100 text-green-800 border-green-200'
                               }`}>
                                 {item.presentacion === 'pack' ? '📦 Pack' : '🎁 Pallet'}
                               </span>
