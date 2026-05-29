@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Loader2, Printer, FileSpreadsheet, Map } from 'lucide-react'
+import { Loader2, Printer, FileSpreadsheet, Map, CheckCircle2, XCircle } from 'lucide-react'
 
 const ESTADO_BADGE = {
   pendiente: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
@@ -253,6 +253,9 @@ export default function AdminOrders() {
   const [fechaDesde, setFechaDesde]         = useState(today)
   const [fechaHasta, setFechaHasta]         = useState(today)
   const [printing, setPrinting]             = useState(false)
+  const [filterPago, setFilterPago]         = useState('Todos')
+  const [pagoPopover, setPagoPopover]       = useState(null)  // { id, estadoPago, monto, nota, rect }
+  const [savingPago, setSavingPago]         = useState(false)
 
   useEffect(() => {
     async function loadVendedores() {
@@ -282,7 +285,7 @@ export default function AdminOrders() {
       setLoading(true)
       let q = supabase
         .from('prepedidos')
-        .select('id, numero_referencia, total, estado, created_at, fecha_visita, vendedor_id, tomado_en_visita, clientes(nombre_negocio, direccion), vendedores(nombre)')
+        .select('id, numero_referencia, total, estado, estado_pago, fecha_pago, monto_pagado, nota_pago, created_at, fecha_visita, vendedor_id, tomado_en_visita, clientes(nombre_negocio, direccion), vendedores(nombre)')
         .order('created_at', { ascending: false })
 
       if (estado !== 'Todos') q = q.eq('estado', estado)
@@ -308,6 +311,9 @@ export default function AdminOrders() {
       const hasta = new Date(fechaHasta + 'T23:59:59')
       if (new Date(o.created_at) > hasta) return false
     }
+    if (filterPago !== 'Todos') {
+      if (o.estado !== 'cerrado' || o.estado_pago !== filterPago) return false
+    }
     return true
   })
 
@@ -321,6 +327,20 @@ export default function AdminOrders() {
         ? { ...o, vendedor_id: vendedorId || null, vendedores: vendedores.find(v => v.id === vendedorId) ?? null }
         : o
     ))
+  }
+
+  async function savePago() {
+    setSavingPago(true)
+    const updates = {
+      estado_pago:  pagoPopover.estadoPago,
+      monto_pagado: pagoPopover.estadoPago === 'pagado' ? (parseFloat(pagoPopover.monto) || null) : null,
+      nota_pago:    pagoPopover.nota?.trim() || null,
+      fecha_pago:   pagoPopover.estadoPago === 'pagado' ? new Date().toISOString() : null,
+    }
+    await supabase.from('prepedidos').update(updates).eq('id', pagoPopover.id)
+    setOrders(prev => prev.map(o => o.id === pagoPopover.id ? { ...o, ...updates } : o))
+    setPagoPopover(null)
+    setSavingPago(false)
   }
 
   async function handlePrintOrders() {
@@ -411,6 +431,15 @@ export default function AdminOrders() {
           <option value="sin_asignar">Sin asignar</option>
           {vendedores.map(v => <option key={v.id} value={v.id}>{v.nombre}</option>)}
         </select>
+        <select
+          className="h-9 rounded-md border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={filterPago}
+          onChange={e => setFilterPago(e.target.value)}
+        >
+          <option value="Todos">Estado de pago</option>
+          <option value="a_cobrar">A cobrar</option>
+          <option value="pagado">Pagado</option>
+        </select>
 
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Desde</span>
@@ -458,7 +487,7 @@ export default function AdminOrders() {
           <Table>
             <TableHeader>
               <TableRow className="bg-negro hover:bg-negro">
-                {['Referencia','Cliente','Dirección','Vendedor','Total','Estado','Fecha','Visita',''].map(h => (
+                {['Referencia','Cliente','Dirección','Vendedor','Total','Pago','Estado','Fecha','Visita',''].map(h => (
                   <TableHead key={h} className="text-white text-[0.7rem] uppercase tracking-wide whitespace-nowrap">{h}</TableHead>
                 ))}
               </TableRow>
@@ -466,7 +495,7 @@ export default function AdminOrders() {
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     No hay prepedidos.
                   </TableCell>
                 </TableRow>
@@ -495,6 +524,34 @@ export default function AdminOrders() {
                   </TableCell>
                   <TableCell className="font-bold text-sm">{formatPrice(p.total)}</TableCell>
                   <TableCell>
+                    {p.estado === 'cerrado' ? (
+                      <button
+                        onClick={e => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setPagoPopover({
+                            id: p.id,
+                            estadoPago: p.estado_pago ?? 'a_cobrar',
+                            monto: String(p.monto_pagado ?? p.total ?? ''),
+                            nota:  p.nota_pago ?? '',
+                            rect,
+                          })
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[0.68rem] font-bold uppercase tracking-wide border transition-colors cursor-pointer ${
+                          p.estado_pago === 'pagado'
+                            ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
+                            : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                        }`}
+                      >
+                        {p.estado_pago === 'pagado'
+                          ? <CheckCircle2 size={11} />
+                          : <XCircle size={11} />}
+                        {p.estado_pago === 'pagado' ? 'Pagado' : 'A cobrar'}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-[0.68rem] font-bold uppercase tracking-wide ${ESTADO_BADGE[p.estado] ?? 'bg-gray-100 text-gray-600'}`}>
                       {p.estado}
                     </span>
@@ -515,6 +572,88 @@ export default function AdminOrders() {
             </TableBody>
           </Table>
         </Card>
+      )}
+
+      {/* ── Pago popover ─────────────────────────────────────────────────── */}
+      {pagoPopover && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setPagoPopover(null)} />
+
+          {/* Floating card */}
+          <div
+            className="fixed z-50 bg-white rounded-xl shadow-panel-lg p-4 w-72 border border-cream-dark"
+            style={{
+              top:  pagoPopover.rect.bottom + 8,
+              left: Math.min(pagoPopover.rect.left, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 300),
+            }}
+          >
+            <p className="font-bold text-sm text-negro mb-3">Registrar cobro</p>
+
+            {/* Toggle A cobrar / Pagado */}
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setPagoPopover(p => ({ ...p, estadoPago: 'a_cobrar' }))}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                  pagoPopover.estadoPago !== 'pagado'
+                    ? 'bg-red-50 text-red-700 border-red-300'
+                    : 'bg-white text-muted-foreground border-input hover:bg-cream'
+                }`}
+              >
+                <XCircle size={11} className="inline mr-1" />
+                A cobrar
+              </button>
+              <button
+                onClick={() => setPagoPopover(p => ({ ...p, estadoPago: 'pagado' }))}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                  pagoPopover.estadoPago === 'pagado'
+                    ? 'bg-green-100 text-green-800 border-green-300'
+                    : 'bg-white text-muted-foreground border-input hover:bg-cream'
+                }`}
+              >
+                <CheckCircle2 size={11} className="inline mr-1" />
+                Pagado
+              </button>
+            </div>
+
+            {pagoPopover.estadoPago === 'pagado' && (
+              <div className="mb-2">
+                <label className="text-[0.7rem] font-bold uppercase tracking-wide text-muted-foreground block mb-1">
+                  Monto cobrado ($)
+                </label>
+                <input
+                  type="number"
+                  value={pagoPopover.monto}
+                  onChange={e => setPagoPopover(p => ({ ...p, monto: e.target.value }))}
+                  className="w-full h-8 rounded-md border border-input px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            )}
+
+            <div className="mb-3">
+              <label className="text-[0.7rem] font-bold uppercase tracking-wide text-muted-foreground block mb-1">
+                Nota (opcional)
+              </label>
+              <input
+                type="text"
+                value={pagoPopover.nota}
+                onChange={e => setPagoPopover(p => ({ ...p, nota: e.target.value }))}
+                placeholder="Transferencia, cheque, efectivo..."
+                className="w-full h-8 rounded-md border border-input px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <button
+              onClick={savePago}
+              disabled={savingPago}
+              className="w-full py-2 bg-negro text-white rounded-lg text-sm font-bold hover:bg-negro/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {savingPago
+                ? <><Loader2 size={13} className="animate-spin" /> Guardando...</>
+                : 'Guardar'}
+            </button>
+          </div>
+        </>
       )}
     </AdminLayout>
   )

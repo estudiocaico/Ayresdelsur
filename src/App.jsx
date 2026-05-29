@@ -20,6 +20,7 @@ import AdminImport from './pages/admin/ImportExcel'
 import AdminVendedores from './pages/admin/Vendedores'
 import AdminConfiguracion from './pages/admin/Configuracion'
 import AdminPromociones from './pages/admin/Promociones'
+import AdminCobranza from './pages/admin/Cobranza'
 import MyOrders from './pages/client/MyOrders'
 import VendedorLayout from './pages/vendedor/VendedorLayout'
 import MisVisitas from './pages/vendedor/MisVisitas'
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="productos" element={<AdminProducts />} />
             <Route path="importar" element={<AdminImport />} />
             <Route path="promociones" element={<AdminPromociones />} />
+            <Route path="cobranza" element={<AdminCobranza />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
           </Route>
 
