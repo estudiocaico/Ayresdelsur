@@ -397,23 +397,21 @@ export default function AdminProducts() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-0.5">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} className="h-7 px-2 text-xs gap-1">
                         <Pencil size={11} /> Editar
                       </Button>
                       {p.ean && (
-                        <Button
-                          variant="ghost" size="sm"
+                        <button
                           onClick={() => buscarImagenOFF(p, false)}
                           disabled={searchingImgId === p.id}
-                          className="h-7 px-2 text-xs gap-1 text-blue-600 hover:text-blue-700"
-                          title={`Buscar imagen en Open Food Facts (EAN: ${p.ean})`}
+                          title={p.imagen_url ? `Actualizar imagen (EAN: ${p.ean})` : `Buscar imagen (EAN: ${p.ean})`}
+                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-cream-dark transition-colors text-blue-500 disabled:opacity-40"
                         >
                           {searchingImgId === p.id
-                            ? <Loader2 size={11} className="animate-spin" />
-                            : <Search size={11} />}
-                          {p.imagen_url ? '↻ Img' : '+ Img'}
-                        </Button>
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <Search size={14} />}
+                        </button>
                       )}
                       <button
                         onClick={() => toggleActive(p)}
