@@ -4,6 +4,21 @@ import { useAuth } from './AuthContext'
 const CartContext = createContext(null)
 const CART_KEY = 'ads_cart_'
 
+/**
+ * Calcula el total de un ítem del carrito aplicando lógica NxM si corresponde.
+ * Para NxM: cada grupo de N unidades paga M. Las unidades que no completan
+ * un grupo pagan al precio base completo.
+ *   Ej: 4 unidades de un 3x2 → 1 grupo (paga 2) + 1 suelta = 3 × precio
+ */
+export function calcItemTotal(item) {
+  if (item.promoN && item.promoM && item.qty > 0) {
+    const groups    = Math.floor(item.qty / item.promoN)
+    const remainder = item.qty % item.promoN
+    return (groups * item.promoM + remainder) * item.price
+  }
+  return item.price * item.qty
+}
+
 export function CartProvider({ children }) {
   const { user } = useAuth()
   const storageKey = CART_KEY + (user?.id ?? 'guest')
@@ -46,7 +61,9 @@ export function CartProvider({ children }) {
   /* ── Cart operations ────────────────────────────────────────── */
   // presentacion: 'unidad' | 'pack' | 'pallet'  — included in key so each
   // presentation is an independent cart line (e.g. 1 unidad + 1 pack = 2 lines)
-  function addItem(product, qty = 1, variantId = null, variantLabel = '', price = null, presentacion = 'unidad') {
+  // promoMeta: { promoN, promoM } para promociones NxM — el price debe ser el precio
+  // base (sin dividir por N) para que calcItemTotal pueda aplicar la lógica correcta.
+  function addItem(product, qty = 1, variantId = null, variantLabel = '', price = null, presentacion = 'unidad', promoMeta = null) {
     const effectivePrice = price !== null ? price : product.precio
     const key = `${product.id}-${variantId ?? 'base'}-${presentacion}`
 
@@ -69,6 +86,8 @@ export function CartProvider({ children }) {
         presentacion,
         qty,
         unit:         product.unidad,
+        promoN:       promoMeta?.promoN ?? null,
+        promoM:       promoMeta?.promoM ?? null,
       }]
     })
 
@@ -96,7 +115,7 @@ export function CartProvider({ children }) {
     setItems([])
   }
 
-  const total     = items.reduce((s, i) => s + i.price * i.qty, 0)
+  const total     = items.reduce((s, i) => s + calcItemTotal(i), 0)
   const itemCount = items.reduce((s, i) => s + i.qty, 0)
 
   return (

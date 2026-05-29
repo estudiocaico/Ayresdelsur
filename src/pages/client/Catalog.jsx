@@ -148,7 +148,13 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
 
   function handleAdd() {
     if (!product || effectivePrice == null) return
-    onAdd(product, addQty, null, badge, effectivePrice, 'unidad')
+    if (promo.tipo_promo === 'nxm' && promo.promo_n && promo.promo_m) {
+      // Para NxM: guardamos el precio BASE en el carrito + metadatos de la promo.
+      // calcItemTotal() en CartContext aplicará la lógica correcta según la qty.
+      onAdd(product, addQty, null, badge, basePrice, 'unidad', { promoN: promo.promo_n, promoM: promo.promo_m })
+    } else {
+      onAdd(product, addQty, null, badge, effectivePrice, 'unidad')
+    }
   }
 
   if (!product || effectivePrice == null) return null
@@ -182,7 +188,7 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
                 {formatPrice(effectivePrice)}
               </span>
               {promo.tipo_promo === 'nxm' && (
-                <span className="text-[0.58rem] text-white/45 mt-0.5">por unidad</span>
+                <span className="text-[0.58rem] text-white/45 mt-0.5">c/u en grupo de {promo.promo_n}</span>
               )}
             </div>
 

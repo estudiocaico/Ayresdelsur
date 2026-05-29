@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { useCart } from '../../hooks/useCart'
+import { useCart, calcItemTotal } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -17,7 +17,7 @@ function buildWAMessage({ refNum, total, clienteNombre, items }) {
   const limite = 10
   const lineas = items.slice(0, limite).map(i => {
     const v = i.variantLabel ? ` (${i.variantLabel})` : ''
-    return `• ${i.qty}x ${i.name}${v} → ${formatPrice(i.price * i.qty)}`
+    return `• ${i.qty}x ${i.name}${v} → ${formatPrice(calcItemTotal(i))}`
   })
   if (items.length > limite) lineas.push(`... y ${items.length - limite} producto(s) más`)
   return (
@@ -74,11 +74,18 @@ export default function Cart() {
         cliente_id: clienteData.id, numero_referencia: refNum, total, notas_admin: notes || null, estado: 'pendiente',
       }).select().single()
       if (pedidoErr) throw pedidoErr
-      const { error: itemsErr } = await supabase.from('items_prepedido').insert(items.map(i => ({
-        prepedido_id: pedido.id, producto_id: i.productId, variante_id: i.variantId ?? null,
-        cantidad: i.qty, precio_unitario: i.price, subtotal: i.price * i.qty,
-        presentacion: i.presentacion ?? 'unidad',
-      })))
+      const { error: itemsErr } = await supabase.from('items_prepedido').insert(items.map(i => {
+        const subtotal = calcItemTotal(i)
+        return {
+          prepedido_id:   pedido.id,
+          producto_id:    i.productId,
+          variante_id:    i.variantId ?? null,
+          cantidad:       i.qty,
+          precio_unitario: subtotal / i.qty,   // precio efectivo promedio
+          subtotal,
+          presentacion:   i.presentacion ?? 'unidad',
+        }
+      }))
       if (itemsErr) throw itemsErr
       notifyWhatsApp({ refNum, clienteNombre: clienteData.nombre_negocio }).catch(() => {})
       clearCart(); navigate(`/pedido-confirmado/${pedido.id}`)
@@ -131,8 +138,28 @@ export default function Cart() {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm leading-snug">{item.name}</div>
                     {item.variantLabel && <div className="text-[0.75rem] text-muted-foreground mt-0.5">{item.variantLabel}</div>}
-                    <div className="text-sm text-muted-foreground mt-1">{formatPrice(item.price)} × {item.qty}</div>
-                    <div className="font-display font-bold text-amarillo text-base mt-0.5">{formatPrice(item.price * item.qty)}</div>
+
+                    {/* NxM breakdown */}
+                    {item.promoN && item.promoM ? (() => {
+                      const groups = Math.floor(item.qty / item.promoN)
+                      const rem    = item.qty % item.promoN
+                      return (
+                        <div className="mt-1">
+                          <span className="inline-block text-[0.65rem] font-bold bg-amarillo/15 text-amarillo px-1.5 py-0.5 rounded-full mr-1">
+                            {item.promoN}x{item.promoM}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {groups > 0 && `${groups} grupo${groups > 1 ? 's' : ''} × ${formatPrice(item.promoM * item.price)}`}
+                            {groups > 0 && rem > 0 && ' + '}
+                            {rem > 0 && `${rem} u. × ${formatPrice(item.price)}`}
+                          </span>
+                        </div>
+                      )
+                    })() : (
+                      <div className="text-sm text-muted-foreground mt-1">{formatPrice(item.price)} × {item.qty}</div>
+                    )}
+
+                    <div className="font-display font-bold text-amarillo text-base mt-0.5">{formatPrice(calcItemTotal(item))}</div>
                   </div>
                   <div className="flex flex-col items-end gap-2.5">
                     <button
