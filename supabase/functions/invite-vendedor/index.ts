@@ -29,9 +29,17 @@ serve(async (req) => {
       })
     }
 
-    const supabaseUrl      = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const siteUrl          = Deno.env.get('SITE_URL') ?? 'https://ayresdelsur.vercel.app'
+    const supabaseUrl    = Deno.env.get('SUPABASE_URL')!
+    // El secret se llama SERVICE_ROLE_KEY porque Supabase no permite el prefijo SUPABASE_ en custom secrets
+    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY')!
+    const siteUrl        = Deno.env.get('SITE_URL') ?? 'https://ayresdelsur.vercel.app'
+
+    if (!serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'SERVICE_ROLE_KEY no configurado en los secrets de la Edge Function' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
