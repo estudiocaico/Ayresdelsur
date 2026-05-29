@@ -55,8 +55,17 @@ export default function AdminClients() {
   }
 
   function openEdit(c) {
-    setEditing({ id: c.id, nombre_negocio: c.nombre_negocio ?? '', razon_social: c.razon_social ?? '',
-      cuit: c.cuit ?? '', direccion: c.direccion ?? '', telefono: c.telefono ?? '', lista_precios: c.lista_precios ?? 'minorista' })
+    setEditing({
+      id: c.id,
+      nombre_negocio: c.nombre_negocio ?? '',
+      razon_social:   c.razon_social   ?? '',
+      cuit:           c.cuit           ?? '',
+      direccion:      c.direccion      ?? '',
+      telefono:       c.telefono       ?? '',
+      lista_precios:  c.lista_precios  ?? 'minorista',
+      whatsapp_callmebot_apikey: c.whatsapp_callmebot_apikey ?? '',
+      whatsapp_notificaciones:   c.whatsapp_notificaciones   ?? true,
+    })
     setError('')
   }
 
@@ -67,6 +76,8 @@ export default function AdminClients() {
         nombre_negocio: editing.nombre_negocio, razon_social: editing.razon_social || null,
         cuit: editing.cuit || null, direccion: editing.direccion,
         telefono: editing.telefono || null, lista_precios: editing.lista_precios,
+        whatsapp_callmebot_apikey: editing.whatsapp_callmebot_apikey || null,
+        whatsapp_notificaciones:   editing.whatsapp_notificaciones,
       }).eq('id', editing.id)
       if (err) throw err
       setClients(prev => prev.map(c => c.id === editing.id ? { ...c, ...editing } : c))
@@ -202,7 +213,42 @@ export default function AdminClients() {
                   </select>
                 </FieldRow>
               </div>
-              <p className="text-[0.72rem] text-muted-foreground mt-1 mb-4">
+
+              {/* WhatsApp */}
+              <div className="mt-4 border border-border rounded-lg p-3.5 bg-cream/40 space-y-3">
+                <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground">Notificaciones WhatsApp</p>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-[0.75rem] uppercase tracking-wider text-muted-foreground font-bold">
+                    API Key Callmebot <span className="normal-case font-normal">(opcional)</span>
+                  </Label>
+                  <Input
+                    placeholder="Ej: 1234567  — vacío: usa la API key global"
+                    value={editing.whatsapp_callmebot_apikey}
+                    onChange={e => setEditing(f => ({...f, whatsapp_callmebot_apikey: e.target.value}))}
+                  />
+                  <p className="text-[0.68rem] text-muted-foreground leading-relaxed">
+                    Para activar: el cliente envía <strong>"I allow callmebot to send me messages"</strong> al{' '}
+                    <strong>+34 644 59 79 23</strong> por WhatsApp y recibe su API key.
+                    El número de teléfono del cliente (campo de arriba) se usa como destino.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editing.whatsapp_notificaciones}
+                    onClick={() => setEditing(f => ({...f, whatsapp_notificaciones: !f.whatsapp_notificaciones}))}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${editing.whatsapp_notificaciones ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${editing.whatsapp_notificaciones ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                  <Label className="text-sm cursor-pointer" onClick={() => setEditing(f => ({...f, whatsapp_notificaciones: !f.whatsapp_notificaciones}))}>
+                    Recibe notificaciones por WhatsApp
+                  </Label>
+                </div>
+              </div>
+
+              <p className="text-[0.72rem] text-muted-foreground mt-3 mb-4">
                 El email no puede modificarse ya que es el usuario de acceso del cliente.
               </p>
               <DialogFooter>

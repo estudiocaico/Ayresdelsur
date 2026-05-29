@@ -15,13 +15,14 @@ function formatPrice(n) {
 const EMPTY_DESTINO = { numero: '', apikey: '' }
 
 export default function AdminConfiguracion() {
-  const [pedidoMinimo, setPedidoMinimo] = useState('50000')
-  const [destinos, setDestinos] = useState([])
-  const [newDest, setNewDest]   = useState(EMPTY_DESTINO)
-  const [loading, setLoading]   = useState(true)
-  const [saving, setSaving]     = useState(false)
-  const [saved, setSaved]       = useState(false)
-  const [error, setError]       = useState('')
+  const [pedidoMinimo, setPedidoMinimo]       = useState('50000')
+  const [destinos, setDestinos]               = useState([])
+  const [newDest, setNewDest]                 = useState(EMPTY_DESTINO)
+  const [apikeyGlobal, setApikeyGlobal]       = useState('')
+  const [loading, setLoading]                 = useState(true)
+  const [saving, setSaving]                   = useState(false)
+  const [saved, setSaved]                     = useState(false)
+  const [error, setError]                     = useState('')
 
   useEffect(() => {
     async function load() {
@@ -34,6 +35,7 @@ export default function AdminConfiguracion() {
         } else if (map.whatsapp_numeros) {
           try { setDestinos(JSON.parse(map.whatsapp_numeros).map(n => ({ numero: n, apikey: '' }))) } catch { setDestinos([]) }
         }
+        if (map.callmebot_apikey_global) setApikeyGlobal(map.callmebot_apikey_global)
       }
       setLoading(false)
     }
@@ -54,8 +56,9 @@ export default function AdminConfiguracion() {
     setSaving(true); setError('')
     try {
       await supabase.from('configuracion').upsert([
-        { clave: 'pedido_minimo',     valor: String(Number(pedidoMinimo) || 0) },
-        { clave: 'whatsapp_destinos', valor: JSON.stringify(destinos) },
+        { clave: 'pedido_minimo',          valor: String(Number(pedidoMinimo) || 0) },
+        { clave: 'whatsapp_destinos',      valor: JSON.stringify(destinos) },
+        { clave: 'callmebot_apikey_global', valor: apikeyGlobal.trim() },
       ])
       setSaved(true); setTimeout(() => setSaved(false), 2500)
     } catch { setError('Error al guardar. Verificá los permisos de admin.') }
@@ -106,14 +109,15 @@ export default function AdminConfiguracion() {
             <CardTitle className="text-base">Notificaciones WhatsApp</CardTitle>
             <p className="text-[0.82rem] text-muted-foreground leading-relaxed">
               Cuando un cliente confirma un pedido, se envía un mensaje automático a los números configurados a través de{' '}
-              <strong>Callmebot</strong> (gratuito).
+              <strong>Callmebot</strong> (gratuito). La misma API key global se usa también para notificar a los clientes
+              (cancelaciones y fechas de visita) salvo que el cliente tenga su propia key configurada.
             </p>
             <a
               href="https://www.callmebot.com/blog/free-api-whatsapp-messages/"
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[0.82rem] text-azul font-semibold hover:underline"
             >
-              Activar Callmebot para mi número <ExternalLink size={12} />
+              Activar Callmebot para un número <ExternalLink size={12} />
             </a>
           </CardHeader>
           <CardContent>
@@ -145,6 +149,24 @@ export default function AdminConfiguracion() {
                 </div>
               </div>
             ))}
+
+            {/* API key global de fallback para notificaciones a clientes */}
+            <div className="border border-border rounded-lg p-3 mb-3 bg-cream/40">
+              <Label className="text-[0.68rem] uppercase tracking-wider text-muted-foreground font-bold block mb-1.5">
+                API Key global (fallback para notificaciones a clientes)
+              </Label>
+              <Input
+                placeholder="Ej: 1234567"
+                value={apikeyGlobal}
+                onChange={e => setApikeyGlobal(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <p className="text-[0.68rem] text-muted-foreground mt-1.5 leading-relaxed">
+                Se usa cuando un cliente no tiene su propia API key configurada.
+                Para activar: el cliente debe enviar <strong>"I allow callmebot to send me messages"</strong> al{' '}
+                <strong>+34 644 59 79 23</strong> por WhatsApp y recibirá su API key.
+              </p>
+            </div>
 
             {/* Add new */}
             <div className="border border-dashed border-border rounded-lg p-3">

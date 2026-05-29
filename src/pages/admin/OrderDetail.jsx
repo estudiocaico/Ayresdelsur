@@ -20,6 +20,28 @@ function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }
 
+// ─── Utilidades WA ────────────────────────────────────────────────────────────
+
+/** Limpia el número para Callmebot: sin espacios/guiones, con prefijo 54 si falta. */
+function cleanPhone(phone) {
+  if (!phone) return null
+  let p = phone.replace(/[\s\-()+]/g, '')
+  if (!p) return null
+  if (p.startsWith('0'))  p = '54' + p.slice(1)   // 0223… → 54223…
+  if (!p.startsWith('54')) p = '54' + p
+  return p
+}
+
+/** Formatea fecha ISO 'YYYY-MM-DD' como 'lunes 14 de julio'. */
+function formatFechaVisita(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00')
+  const dias   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
+  const meses  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+  return `${dias[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AdminOrderDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -31,31 +53,85 @@ export default function AdminOrderDetail() {
   const [estado, setEstado]           = useState('')
   const [fechaVisita, setFechaVisita] = useState('')
   const [saved, setSaved]             = useState(false)
+  const [apikeyGlobal, setApikeyGlobal] = useState('')
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('prepedidos').select(`
-        *,
-        clientes(nombre_negocio, razon_social, cuit, direccion, telefono, email),
-        vendedores(nombre),
-        items_prepedido(
-          id, cantidad, precio_unitario, subtotal, presentacion,
-          productos(nombre, codigo_interno, descripcion, unidad),
-          variantes_producto(valor)
-        )
-      `).eq('id', id).single()
+      const [{ data }, { data: cfgData }] = await Promise.all([
+        supabase.from('prepedidos').select(`
+          *,
+          clientes(nombre_negocio, razon_social, cuit, direccion, telefono, email,
+                   whatsapp_callmebot_apikey, whatsapp_notificaciones),
+          vendedores(nombre),
+          items_prepedido(
+            id, cantidad, precio_unitario, subtotal, presentacion,
+            productos(nombre, codigo_interno, descripcion, unidad),
+            variantes_producto(valor)
+          )
+        `).eq('id', id).single(),
+        supabase.from('configuracion').select('valor').eq('clave', 'callmebot_apikey_global').maybeSingle(),
+      ])
       if (data) {
-        setPedido(data); setNotes(data.notas_admin ?? ''); setEstado(data.estado)
-        setFechaVisita(data.fecha_visita ?? new Date().toISOString().split('T')[0])
+        setPedido(data)
+        setNotes(data.notas_admin ?? '')
+        setEstado(data.estado)
+        setFechaVisita(data.fecha_visita ?? '')   // '' = sin fecha; admin la elige explícitamente
       }
+      if (cfgData?.valor) setApikeyGlobal(cfgData.valor)
       setLoading(false)
     }
     load()
   }, [id])
 
+  /** Envía notificación WA al cliente si corresponde. Llama ANTES de actualizar el estado local. */
+  async function notifyClienteWA({ prevEstado, prevFechaVisita }) {
+    const cliente = pedido?.clientes
+    // Verificar que el cliente quiere notificaciones (default true si el campo no existe aún)
+    if (cliente?.whatsapp_notificaciones === false) return
+
+    const phone  = cleanPhone(cliente?.telefono)
+    if (!phone) return
+
+    const apikey = (cliente?.whatsapp_callmebot_apikey ?? '').trim() || apikeyGlobal.trim()
+    if (!apikey) return
+
+    let mensaje = null
+
+    // Caso A: estado cambia a cancelado
+    if (estado === 'cancelado' && prevEstado !== 'cancelado') {
+      mensaje = `❌ Tu pedido ${pedido.numero_referencia} fue cancelado. Contactate con nosotros si tenés dudas.`
+    }
+    // Caso B: fecha de visita asignada (nueva o cambiada, y no vacía)
+    else if (fechaVisita && fechaVisita !== (prevFechaVisita ?? '')) {
+      const vendedorNombre = pedido.vendedores?.nombre ?? 'tu vendedor'
+      mensaje = `📦 Tu pedido ${pedido.numero_referencia} está confirmado. Tu vendedor ${vendedorNombre} te visita el ${formatFechaVisita(fechaVisita)}. ¡Hasta pronto!`
+    }
+
+    if (!mensaje) return
+
+    try {
+      await supabase.functions.invoke('notify-pedido', {
+        body: { destinos: [{ numero: phone, apikey }], mensaje },
+      })
+    } catch (e) {
+      console.warn('WA cliente notify error:', e)
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
-    await supabase.from('prepedidos').update({ notas_admin: notes || null, estado, fecha_visita: fechaVisita || null }).eq('id', id)
+    const prevEstado      = pedido.estado
+    const prevFechaVisita = pedido.fecha_visita
+
+    await supabase.from('prepedidos').update({
+      notas_admin: notes || null,
+      estado,
+      fecha_visita: fechaVisita || null,
+    }).eq('id', id)
+
+    // Notificar al cliente en paralelo (no bloquea el guardado)
+    notifyClienteWA({ prevEstado, prevFechaVisita }).catch(() => {})
+
     setPedido(prev => ({ ...prev, notas_admin: notes || null, estado, fecha_visita: fechaVisita || null }))
     setSaved(true); setTimeout(() => setSaved(false), 2000); setSaving(false)
   }
@@ -76,9 +152,13 @@ export default function AdminOrderDetail() {
         </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">📅 Visita:</span>
-          <input type="date" value={fechaVisita} onChange={e => setFechaVisita(e.target.value)}
-            className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+          <span className="text-sm text-muted-foreground whitespace-nowrap" title="Al guardar con fecha nueva, el cliente recibe un WhatsApp automático">📅 Visita:</span>
+          <input
+            type="date"
+            value={fechaVisita}
+            onChange={e => setFechaVisita(e.target.value)}
+            className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
         </div>
         <select value={estado} onChange={e => setEstado(e.target.value)}
           className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
