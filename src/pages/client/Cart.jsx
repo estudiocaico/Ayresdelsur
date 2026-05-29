@@ -110,7 +110,7 @@ export default function Cart() {
     <>
       <ClientNavbar />
 
-      <div className="max-w-[600px] mx-auto px-4 pt-4 pb-[170px]">
+      <div className="max-w-[600px] mx-auto px-4 pt-4 pb-[260px]">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="gap-1.5 text-muted-foreground">
