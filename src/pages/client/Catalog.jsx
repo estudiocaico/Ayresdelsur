@@ -96,31 +96,69 @@ function hasPallet(product, variant) {
 
 const PRES_LABELS = { unidad: 'Unidad', pack: 'Pack', pallet: 'Pallet' }
 
+// ─── Promo helpers ───────────────────────────────────────────────────────────
+function calcEffectivePrice(promo, basePrice) {
+  switch (promo.tipo_promo) {
+    case 'nxm':
+      if (!promo.promo_n || !promo.promo_m) return basePrice
+      return basePrice * promo.promo_m / promo.promo_n
+    case 'descuento_porcentual':
+      if (!promo.descuento_porcentaje) return basePrice
+      return basePrice * (1 - promo.descuento_porcentaje / 100)
+    case 'precio_especial':
+      return promo.precio_promo ?? basePrice
+    case 'cantidad_minima':
+      if (!promo.descuento_porcentaje) return basePrice
+      return basePrice * (1 - promo.descuento_porcentaje / 100)
+    default:
+      return basePrice
+  }
+}
+
+function calcAddQty(promo) {
+  if (promo.tipo_promo === 'nxm')           return promo.promo_n ?? 1
+  if (promo.tipo_promo === 'cantidad_minima') return promo.qty_minima ?? 1
+  return 1
+}
+
+function promoBadge(promo) {
+  switch (promo.tipo_promo) {
+    case 'nxm':                  return `${promo.promo_n}x${promo.promo_m}`
+    case 'descuento_porcentual': return `${promo.descuento_porcentaje}% OFF`
+    case 'precio_especial':      return 'OFERTA'
+    case 'cantidad_minima':      return `+${promo.qty_minima}u → ${promo.descuento_porcentaje}% OFF`
+    default:                     return 'DESTACADO'
+  }
+}
+
 // ─── PromoCard ────────────────────────────────────────────────────────────────
 function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
   const product = promo.productos
   const [imgFailed, setImgFailed] = useState(false)
   const [imgSrc, setImgSrc]       = useState(product?.imagen_url ?? null)
 
-  // Use unidad price for the promo slider (no variant/presentation selector)
-  const price = getPrecioBase(product, listaPrecio)
+  const basePrice      = product ? getPrecioBase(product, listaPrecio) : null
+  const effectivePrice = basePrice != null ? calcEffectivePrice(promo, basePrice) : null
+  const hasDiscount    = effectivePrice != null && basePrice != null && Math.round(effectivePrice) < Math.round(basePrice)
+  const addQty         = calcAddQty(promo)
+  const badge          = promoBadge(promo)
 
   const key      = `${product?.id}-base-unidad`
   const cartItem = cartItems.find(i => i.key === key)
 
   function handleAdd() {
-    if (!product) return
-    onAdd(product, 1, null, '', price, 'unidad')
+    if (!product || effectivePrice == null) return
+    onAdd(product, addQty, null, badge, effectivePrice, 'unidad')
   }
 
-  if (!product || price == null) return null
+  if (!product || effectivePrice == null) return null
 
   return (
     <div
       className="snap-start flex-none relative rounded-2xl overflow-hidden shadow-panel"
-      style={{ width: 'min(78vw, 260px)', height: '160px' }}
+      style={{ width: 'min(78vw, 260px)', height: '168px' }}
     >
-      {/* Background image with gradient overlay */}
+      {/* Background image */}
       {imgSrc && !imgFailed ? (
         <img
           src={imgSrc}
@@ -141,27 +179,38 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
       )}
 
       {/* Dark gradient overlay from left */}
-      <div className="absolute inset-0 bg-gradient-to-r from-negro/95 via-negro/70 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-negro/95 via-negro/65 to-transparent" />
 
       {/* Content */}
       <div className="absolute inset-0 flex flex-col justify-between p-3.5">
-        {/* Top: badge */}
-        <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
-            <Zap size={9} /> Destacado
+        {/* Top: promo badge */}
+        <div>
+          <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.62rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
+            <Zap size={9} /> {badge}
           </span>
         </div>
 
-        {/* Bottom: info + cart */}
+        {/* Bottom: name + price + cart */}
         <div>
           <div className="font-bold text-white text-sm leading-tight line-clamp-2">{product.nombre}</div>
           {promo.texto && (
-            <div className="text-[0.68rem] text-white/70 mt-0.5 line-clamp-1">{promo.texto}</div>
+            <div className="text-[0.68rem] text-white/65 mt-0.5 line-clamp-1">{promo.texto}</div>
           )}
           <div className="flex items-center justify-between mt-2 gap-2">
-            <span className="font-display font-extrabold text-amarillo text-base leading-none">
-              {formatPrice(price)}
-            </span>
+            {/* Prices */}
+            <div className="flex flex-col leading-none">
+              {hasDiscount && (
+                <span className="text-[0.65rem] text-white/50 line-through">{formatPrice(basePrice)}</span>
+              )}
+              <span className="font-display font-extrabold text-amarillo text-base leading-tight">
+                {formatPrice(effectivePrice)}
+              </span>
+              {promo.tipo_promo === 'nxm' && (
+                <span className="text-[0.6rem] text-white/50 mt-0.5">por unidad</span>
+              )}
+            </div>
+
+            {/* Cart controls */}
             {cartItem ? (
               <div className="flex items-center gap-1">
                 <button
@@ -170,7 +219,7 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
                 >
                   <Minus size={10} />
                 </button>
-                <span className="font-display font-extrabold text-sm text-white min-w-[16px] text-center">{cartItem.qty}</span>
+                <span className="font-display font-extrabold text-sm text-white min-w-[18px] text-center">{cartItem.qty}</span>
                 <button
                   onClick={() => onUpdate(key, cartItem.qty + 1)}
                   className="w-6 h-6 rounded-full bg-amarillo hover:bg-amarillo/80 text-negro flex items-center justify-center transition-colors"
@@ -183,7 +232,7 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
                 onClick={handleAdd}
                 className="bg-amarillo text-negro hover:bg-amarillo/80 rounded-lg px-2.5 py-1 text-[0.7rem] font-extrabold transition-colors whitespace-nowrap"
               >
-                + Agregar
+                {addQty > 1 ? `+ ${addQty} u.` : '+ Agregar'}
               </button>
             )}
           </div>
@@ -392,7 +441,7 @@ export default function Catalog() {
       // Step 2: load promos separately (two-step to avoid FK-join cache issues)
       const { data: promoRows } = await supabase
         .from('promociones')
-        .select('id, texto, orden, listas_precios, producto_id')
+        .select('id, texto, orden, listas_precios, producto_id, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima')
         .eq('activo', true)
         .order('orden')
 
