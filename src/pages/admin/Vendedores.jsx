@@ -85,7 +85,15 @@ export default function AdminVendedores() {
       if (!res.ok || json.error) throw new Error(json.error ?? 'Error al enviar invitación')
       setInviteResult(prev => ({ ...prev, [v.id]: 'ok' }))
     } catch (err) {
-      setInviteResult(prev => ({ ...prev, [v.id]: err.message }))
+      // Traducir mensajes de error comunes de Supabase Auth
+      let msg = err.message ?? 'Error al enviar invitación'
+      if (msg.includes('already been registered') || msg.includes('already registered'))
+        msg = 'Este email ya tiene una cuenta registrada. Eliminá el usuario desde Supabase Auth y volvé a intentar.'
+      if (msg.includes('SERVICE_ROLE_KEY'))
+        msg = 'Falta configurar el secret SERVICE_ROLE_KEY en la Edge Function.'
+      if (msg.includes('Invalid API key') || msg.includes('Forbidden'))
+        msg = 'La SERVICE_ROLE_KEY configurada no es válida.'
+      setInviteResult(prev => ({ ...prev, [v.id]: msg }))
     }
     setInvitingId(null)
   }
