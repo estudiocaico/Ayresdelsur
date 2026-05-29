@@ -285,7 +285,7 @@ export default function AdminClients() {
                     </div>
                   </TableCell>
                 </TableRow>
-                ))}
+                ))
               })()}
             </TableBody>
           </Table>
