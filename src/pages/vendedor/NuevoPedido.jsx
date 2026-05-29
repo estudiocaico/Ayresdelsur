@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useVendedor } from './VendedorLayout'
 import {
   Loader2, Search, ArrowLeft, Plus, Minus,
-  ShoppingCart, ChevronDown, ChevronUp, CheckCircle,
+  ShoppingCart, ChevronDown, ChevronUp, CheckCircle, X,
 } from 'lucide-react'
 
 // ── Colores de categoría (mismo mapa que el catálogo del cliente) ─────────────
@@ -114,6 +114,20 @@ function setCachedCatalog(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }))
   } catch {}
+}
+
+// ── Persistencia del borrador de pedido ───────────────────────────────────────
+const DRAFT_KEY_PREFIX = 'ads_draft_'
+const DRAFT_TTL        = 24 * 60 * 60 * 1000 // 24 horas
+
+function readDraft(vendedorId) {
+  try {
+    const raw = localStorage.getItem(`${DRAFT_KEY_PREFIX}${vendedorId}`)
+    if (!raw) return null
+    const d = JSON.parse(raw)
+    if (!d.cliente || !d.savedAt || Date.now() - d.savedAt > DRAFT_TTL) return null
+    return d
+  } catch { return null }
 }
 
 // ── Debounce hook ─────────────────────────────────────────────────────────────
@@ -879,18 +893,65 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
 
 export default function NuevoPedido() {
   const { vendedor } = useVendedor()
-  const [step, setStep]             = useState(1)
-  const [cliente, setCliente]       = useState(null)
-  const [cart, setCart]             = useState([])
-  const [successRef, setSuccessRef] = useState(null)
 
-  function handleSelectCliente(c) { setCliente(c); setCart([]); setStep(2) }
-  function handleBackToStep1()    { setStep(1) }
-  function handleToStep3()        { if (cart.length > 0) setStep(3) }
-  function handleBackToStep2()    { setStep(2) }
-  function handleSuccess(refNum)  { setSuccessRef(refNum); setStep(4) }
+  // ── Restaurar borrador guardado (se ejecuta UNA vez al montar) ─────────────
+  const [initialDraft] = useState(() => readDraft(vendedor.id))
 
-  function reset() { setStep(1); setCliente(null); setCart([]); setSuccessRef(null) }
+  const [step, setStep]                   = useState(initialDraft?.step      ?? 1)
+  const [cliente, setCliente]             = useState(initialDraft?.cliente   ?? null)
+  const [cart, setCart]                   = useState(initialDraft?.cart      ?? [])
+  const [successRef, setSuccessRef]       = useState(null)
+  const [draftRestored, setDraftRestored] = useState(!!initialDraft?.cliente)
+
+  const draftKey = `${DRAFT_KEY_PREFIX}${vendedor.id}`
+
+  // ── Auto-guardar borrador cada vez que cambia algo ─────────────────────────
+  useEffect(() => {
+    if (!cliente) return  // sin cliente no hay nada que guardar
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ step, cliente, cart, savedAt: Date.now() }))
+    } catch {}
+  }, [step, cliente, cart])
+
+  function clearDraft() { try { localStorage.removeItem(draftKey) } catch {} }
+
+  // ── Handlers de navegación ─────────────────────────────────────────────────
+  function handleSelectCliente(c)  { setCliente(c); setCart([]); setStep(2) }
+  function handleBackToStep1()     { setStep(1) }
+  function handleToStep3()         { if (cart.length > 0) setStep(3) }
+  function handleBackToStep2()     { setStep(2) }
+  function handleSuccess(refNum)   {
+    clearDraft()
+    setSuccessRef(refNum)
+    setDraftRestored(false)
+    setStep(4)
+  }
+  function reset() {
+    clearDraft()
+    setStep(1); setCliente(null); setCart([]); setSuccessRef(null); setDraftRestored(false)
+  }
+
+  // ── Banner de borrador recuperado ──────────────────────────────────────────
+  const draftBanner = draftRestored && (
+    <div className="mx-4 mt-3 mb-1 bg-amarillo-cl border border-amarillo/50 rounded-xl px-4 py-2.5 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-[0.78rem] font-bold text-negro leading-snug">Pedido en progreso recuperado</p>
+        <p className="text-[0.7rem] text-muted-foreground truncate">{cliente?.nombre_negocio}</p>
+      </div>
+      <button
+        onClick={reset}
+        className="text-[0.7rem] font-semibold text-muted-foreground hover:text-red-600 transition-colors whitespace-nowrap shrink-0"
+      >
+        Descartar
+      </button>
+      <button
+        onClick={() => setDraftRestored(false)}
+        className="text-muted-foreground hover:text-negro transition-colors shrink-0"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  )
 
   // ── Pantalla de éxito ──────────────────────────────────────────────────────
   if (step === 4) {
@@ -912,27 +973,38 @@ export default function NuevoPedido() {
     )
   }
 
-  if (step === 1) return <Step1 onSelect={handleSelectCliente} />
+  if (step === 1) return (
+    <>
+      {draftBanner}
+      <Step1 onSelect={handleSelectCliente} />
+    </>
+  )
 
   if (step === 2) return (
-    <Step2
-      cliente={cliente}
-      cart={cart}
-      setCart={setCart}
-      onBack={handleBackToStep1}
-      onNext={handleToStep3}
-    />
+    <>
+      {draftBanner}
+      <Step2
+        cliente={cliente}
+        cart={cart}
+        setCart={setCart}
+        onBack={handleBackToStep1}
+        onNext={handleToStep3}
+      />
+    </>
   )
 
   if (step === 3) return (
-    <Step3
-      cliente={cliente}
-      cart={cart}
-      setCart={setCart}
-      vendedor={vendedor}
-      onBack={handleBackToStep2}
-      onSuccess={handleSuccess}
-    />
+    <>
+      {draftBanner}
+      <Step3
+        cliente={cliente}
+        cart={cart}
+        setCart={setCart}
+        vendedor={vendedor}
+        onBack={handleBackToStep2}
+        onSuccess={handleSuccess}
+      />
+    </>
   )
 
   return null
