@@ -1,0 +1,910 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Lexend+Deca:wght@600;700;800&display=swap');
+/* ── Reset estrictamente dentro de #ca ────────────────────────── */
+#ca,#ca *,#ca *::before,#ca *::after{box-sizing:border-box}
+#ca h1,#ca h2,#ca h3,#ca h4,#ca h5,#ca h6,#ca p,#ca ul,#ca ol,#ca li{margin:0;padding:0;font-weight:inherit;font-size:inherit}
+#ca img{max-width:100%;display:block}
+
+/* ── Contenedor principal ─────────────────────────────────────── */
+#ca{
+  /* Tokens Caico */
+  --cyan:#009CDF;--purple:#7E8CC4;--magenta:#E71680;--orange:#F5A076;--yellow:#FED13E;--black:#0E0E10;
+  --paper-0:#FFFFFF;--paper-1:#FAF8F4;--paper-2:#F2EFE8;--paper-3:#E8E4DA;
+  --ink-1:#0E0E10;--ink-2:#2B2B30;--ink-3:#5C5C63;--ink-4:#93939B;
+  --rule:#DEDAD0;
+  --rainbow:linear-gradient(90deg,#CFEEF9 0%,#DDDDF1 25%,#FAD0E5 50%,#FBDFCD 75%,#FFF0B5 100%);
+  --sh-md:0 4px 14px rgba(14,14,16,.07),0 2px 4px rgba(14,14,16,.05);
+  --fd:'Lexend Deca','Lexend',sans-serif;
+  --fb:'Lexend',sans-serif;
+  --r:12px;
+
+  font-family:var(--fb);
+  color:var(--ink-1);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(circle at 15% 10%,rgba(0,156,223,.12),transparent 40%),
+    radial-gradient(circle at 85% 80%,rgba(231,22,128,.10),transparent 40%),
+    radial-gradient(circle at 75% 15%,rgba(254,209,62,.14),transparent 32%),
+    var(--paper-3);
+  border-radius:20px;
+  padding:36px 20px 56px;
+  max-width:960px;
+  margin:0 auto;
+  overflow:hidden;
+}
+
+/* Tipografía uniforme: Lexend en todo */
+#ca input,#ca select,#ca textarea,#ca button,#ca label{
+  font-family:var(--fb);
+}
+
+/* ── Rainbow rule ────────────────────────────────────────────── */
+#ca .ca-rainbow{height:4px;border-radius:4px;background:var(--rainbow);margin-bottom:32px}
+
+/* ── Header ──────────────────────────────────────────────────── */
+#ca .ca-head{text-align:center;margin-bottom:36px}
+#ca .ca-eyebrow{
+  font-family:var(--fd);font-weight:700;font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-bottom:10px
+}
+#ca .ca-head h2{
+  font-family:var(--fd);font-weight:800;
+  font-size:clamp(1.5rem,4.5vw,2.2rem);
+  color:var(--ink-1);line-height:1.15;margin:0
+}
+#ca .ca-head p{color:var(--ink-3);margin-top:10px;font-size:.9rem}
+
+/* ── Currency pills ──────────────────────────────────────────── */
+#ca .ca-pills{display:flex;justify-content:center;gap:8px;margin-top:18px;flex-wrap:wrap}
+#ca .ca-pills button{
+  padding:6px 18px;border-radius:20px;border:1.5px solid var(--rule);
+  background:var(--paper-0);color:var(--ink-3);
+  font-family:var(--fd);font-size:.78rem;font-weight:700;
+  cursor:pointer;transition:all .2s;letter-spacing:.02em;line-height:1.5
+}
+#ca .ca-pills button.on{background:var(--black);border-color:var(--black);color:var(--yellow)}
+
+/* ── Grid principal ──────────────────────────────────────────── */
+#ca .ca-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:640px){#ca .ca-grid{grid-template-columns:1fr}}
+#ca .ca-span2{grid-column:1/-1}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+#ca .ca-card{
+  background:var(--paper-1);border-radius:var(--r);
+  border:1px solid var(--rule);padding:20px;
+  box-shadow:var(--sh-md);transition:box-shadow .2s
+}
+#ca .ca-card:hover{box-shadow:0 6px 20px rgba(231,22,128,.08),0 2px 6px rgba(14,14,16,.06)}
+
+#ca .ca-ct{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--fd);font-weight:700;font-size:11px;
+  letter-spacing:.10em;text-transform:uppercase;color:var(--ink-4);
+  margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--rule)
+}
+#ca .ca-ct .ico{
+  width:26px;height:26px;border-radius:6px;
+  background:var(--paper-2);border:1px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;flex-shrink:0;line-height:1
+}
+
+/* ── Campos ──────────────────────────────────────────────────── */
+#ca .ca-f{margin-bottom:12px}
+#ca .ca-f:last-child{margin-bottom:0}
+
+#ca label.ca-l{
+  display:block;font-family:var(--fd);font-weight:600;
+  font-size:.72rem;color:var(--ink-2);margin-bottom:4px;letter-spacing:.01em
+}
+
+#ca .ca-inp,#ca .ca-sel{
+  width:100%;padding:9px 12px;
+  border:1px solid var(--rule);border-radius:8px;
+  font-family:var(--fb);font-size:.88rem;color:var(--ink-1);
+  background:var(--paper-0);transition:border-color .15s,box-shadow .15s;
+  font-variant-numeric:tabular-nums
+}
+#ca .ca-inp{-webkit-appearance:none;appearance:none}
+#ca .ca-inp:focus,#ca .ca-sel:focus{
+  outline:none;border-color:var(--cyan);
+  box-shadow:0 0 0 3px rgba(0,156,223,.12)
+}
+#ca .ca-inp:disabled{opacity:.35;cursor:not-allowed;background:var(--paper-2)}
+#ca .ca-sel{
+  background-image:none;
+  padding-right:12px
+}
+
+/* Input con unidad */
+#ca .ca-ig{display:flex;align-items:stretch}
+#ca .ca-ig .ca-inp{border-radius:8px 0 0 8px;flex:1;min-width:0}
+#ca .ca-u{
+  padding:0 10px;background:var(--paper-2);
+  border:1px solid var(--rule);border-left:none;border-radius:0 8px 8px 0;
+  font-family:var(--fb);font-size:.78rem;color:var(--ink-4);
+  white-space:nowrap;display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+
+/* 2 columnas dentro de una card */
+#ca .ca-2c{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+#ca .ca-sub{font-family:var(--fd);font-size:.68rem;color:var(--ink-4);text-align:center;margin-top:4px;letter-spacing:.02em}
+@media(max-width:340px){#ca .ca-2c{grid-template-columns:1fr}}
+
+/* Separador */
+#ca .ca-hr{border:none;border-top:1px solid var(--rule);margin:14px 0}
+
+/* ── Toggle switch ───────────────────────────────────────────── */
+#ca .ca-tr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+#ca .ca-tr .ca-tl{font-family:var(--fd);font-weight:600;font-size:.84rem;color:var(--ink-2)}
+#ca .ca-sw{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+#ca .ca-sw input{opacity:0;width:0;height:0;position:absolute}
+#ca .ca-sw-sl{position:absolute;inset:0;background:var(--rule);border-radius:24px;cursor:pointer;transition:.25s}
+#ca .ca-sw-sl::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+#ca .ca-sw input:checked+.ca-sw-sl{background:var(--magenta)}
+#ca .ca-sw input:checked+.ca-sw-sl::before{transform:translateX(20px)}
+
+/* ── Colapsable ──────────────────────────────────────────────── */
+#ca .ca-col{overflow:hidden;max-height:0;transition:max-height .3s ease}
+#ca .ca-col.open{max-height:700px}
+
+/* ── Nota (naranja) ──────────────────────────────────────────── */
+#ca .ca-note{
+  font-size:.74rem;color:var(--ink-2);line-height:1.5;
+  background:#FBE7D6;border-left:3px solid var(--orange);
+  padding:7px 10px;border-radius:0 6px 6px 0;margin-top:8px
+}
+
+/* ── Help / details (cyan) ───────────────────────────────────── */
+#ca details.ca-help{margin-top:12px}
+#ca details.ca-help>summary{
+  display:flex;align-items:center;gap:5px;
+  font-family:var(--fd);font-weight:700;font-size:.72rem;
+  letter-spacing:.04em;color:var(--cyan);
+  cursor:pointer;list-style:none;
+  padding:7px 10px;background:#DCF1FB;
+  border-radius:8px;border:1px solid rgba(0,156,223,.2);
+  user-select:none;transition:background .15s;text-transform:uppercase
+}
+#ca details.ca-help>summary::-webkit-details-marker{display:none}
+#ca details.ca-help>summary::marker{display:none}
+#ca details.ca-help>summary:hover{background:#C8E8F7}
+#ca details.ca-help[open]>summary{border-radius:8px 8px 0 0;border-bottom:none}
+#ca .ca-hb{
+  padding:12px 14px;background:#DCF1FB;
+  border-radius:0 0 8px 8px;border:1px solid rgba(0,156,223,.2);border-top:none;
+  font-size:.78rem;color:#054B68;line-height:1.65
+}
+#ca .ca-hb strong{color:var(--ink-1)}
+
+/* ── Lista de extras (checkboxes) ────────────────────────────── */
+#ca .ca-chks{display:flex;flex-direction:column;gap:9px}
+#ca .ca-chkr{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+#ca .ca-chkr input[type=checkbox]{
+  width:17px;height:17px;min-width:17px;accent-color:var(--magenta);
+  cursor:pointer;margin:0
+}
+#ca .ca-chkr .ca-cn{flex:1;font-size:.84rem;min-width:0;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ca .ca-chkr .ca-cc{width:108px;flex-shrink:0}
+@media(max-width:420px){
+  #ca .ca-chkr{flex-wrap:wrap;align-items:flex-start}
+  #ca .ca-chkr .ca-cn{white-space:normal;flex-basis:calc(100% - 26px)}
+  #ca .ca-chkr .ca-cc{width:100%;margin-left:25px}
+}
+
+/* ── Botones dinámicos ───────────────────────────────────────── */
+#ca .ca-rm-btn{
+  width:24px;height:24px;min-width:24px;border-radius:50%;border:none;
+  background:#FBE3EE;color:var(--magenta);font-size:.72rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  padding:0;transition:background .15s;line-height:1
+}
+#ca .ca-rm-btn:hover{background:#F7C7DC}
+#ca .ca-add-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin-top:12px;padding:9px 14px;width:100%;border-radius:8px;
+  border:1.5px dashed var(--rule);background:transparent;
+  color:var(--ink-4);font-family:var(--fd);font-size:.76rem;font-weight:700;
+  cursor:pointer;transition:all .2s;letter-spacing:.04em;text-transform:uppercase;
+  line-height:1.5
+}
+#ca .ca-add-btn:hover{border-color:var(--magenta);color:var(--magenta);background:#FBE3EE}
+
+/* ── Panel de resultado (oscuro) ─────────────────────────────── */
+#ca .ca-res{
+  background:var(--black);border-radius:var(--r);
+  padding:24px;color:var(--paper-0);
+  box-shadow:0 24px 50px rgba(14,14,16,.22),0 8px 16px rgba(14,14,16,.12)
+}
+#ca .ca-res-rainbow{height:3px;border-radius:2px;background:var(--rainbow);margin-bottom:20px}
+#ca .ca-res-h{
+  font-family:var(--fd);font-weight:700;font-size:11px;
+  letter-spacing:.10em;text-transform:uppercase;opacity:.5;margin-bottom:16px
+}
+
+#ca .ca-rg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:520px){#ca .ca-rg{grid-template-columns:1fr 1fr}}
+@media(max-width:310px){#ca .ca-rg{grid-template-columns:1fr}}
+
+#ca .ca-st{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;padding:10px 13px
+}
+#ca .ca-st .ca-sl{
+  font-family:var(--fd);font-size:.65rem;opacity:.55;margin-bottom:4px;
+  letter-spacing:.05em;text-transform:uppercase
+}
+#ca .ca-st .ca-sv{
+  font-family:var(--fb);font-size:.95rem;font-weight:600;
+  color:var(--yellow);font-variant-numeric:tabular-nums
+}
+
+#ca .ca-rm{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:16px 20px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px
+}
+#ca .ca-rm .lbl{font-family:var(--fd);font-size:.82rem;opacity:.7;letter-spacing:.02em}
+#ca .ca-rm .pr{
+  font-family:var(--fb);font-size:clamp(1.8rem,5vw,2.4rem);
+  font-weight:700;line-height:1;color:var(--yellow);font-variant-numeric:tabular-nums
+}
+#ca .ca-rm .sub{
+  font-family:var(--fb);font-size:.72rem;opacity:.5;margin-top:3px;
+  font-variant-numeric:tabular-nums
+}
+
+/* ── Gráfico de barras ───────────────────────────────────────── */
+#ca .ca-bw{margin-top:18px}
+#ca .ca-bt{
+  font-family:var(--fd);font-size:.66rem;opacity:.5;
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px
+}
+#ca .ca-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:rgba(255,255,255,.08)}
+#ca .ca-bs{height:100%;transition:width .4s ease;border-radius:4px}
+#ca .ca-leg{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}
+#ca .ca-li{display:flex;align-items:center;gap:5px;font-family:var(--fd);font-size:.69rem;opacity:.7}
+#ca .ca-ld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── Botones de acción ───────────────────────────────────────── */
+#ca .ca-acts{display:flex;justify-content:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+#ca .ca-btn{
+  padding:8px 22px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);
+  background:transparent;color:rgba(255,255,255,.75);
+  font-family:var(--fd);font-size:.74rem;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;
+  cursor:pointer;transition:all .2s;line-height:1.5
+}
+#ca .ca-btn:hover{background:rgba(255,255,255,.10);color:var(--paper-0)}
+#ca .ca-btn.primary{background:rgba(254,209,62,.12);border-color:rgba(254,209,62,.35);color:var(--yellow)}
+#ca .ca-btn.primary:hover{background:rgba(254,209,62,.22)}
+
+/* ── Mobile: padding interno reducido ────────────────────────── */
+@media(max-width:480px){
+  #ca{padding:24px 14px 40px;border-radius:12px}
+  #ca .ca-card{padding:16px}
+  #ca .ca-res{padding:18px 16px}
+  #ca .ca-rm{padding:14px 16px}
+}
+</style>
+
+<div id="ca">
+
+<div class="ca-rainbow"></div>
+
+<div class="ca-head">
+  <div class="ca-eyebrow">Herramienta gratuita</div>
+  <h2>Calculadora de Precios<br>Agendas &amp; Cuadernos</h2>
+  <p>Calculá el precio de venta ideal para tu producto — sin registro, sin costos</p>
+  <div class="ca-pills">
+    <button class="on" onclick="caCur('$',this)">$ ARS</button>
+    <button onclick="caCur('USD',this)">USD</button>
+    <button onclick="caCur('€',this)">€ EUR</button>
+  </div>
+</div>
+
+<div class="ca-grid">
+
+<!-- ═══ ESPECIFICACIONES ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">📐</span> Especificaciones físicas</div>
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de producto</label>
+    <select class="ca-sel" id="ca-tipo">
+      <option>Agenda</option><option>Cuaderno</option>
+      <option>Libreta</option><option>Planner</option><option>Journal / Diario</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Tamaño</label>
+    <select class="ca-sel" id="ca-tam">
+      <option>A4 — 21 × 29.7 cm</option>
+      <option>Carta — 21.6 × 27.9 cm</option>
+      <option selected>A5 — 14.8 × 21 cm</option>
+      <option>Media carta — 13.97 × 21.6 cm</option>
+      <option>A6 — 10.5 × 14.8 cm</option>
+      <option>Cuadrado 15 × 15 cm</option>
+      <option>Bolsillo — 9 × 14 cm</option>
+      <option>Medida personalizada</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Cantidad de hojas interiores</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-hojas" value="100" min="10" max="600" step="10" oninput="caCalc()">
+      <span class="ca-u">hojas</span>
+    </div>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de papel interior</label>
+    <select class="ca-sel" id="ca-tipopapel" onchange="caPapelOtro();caCalc()">
+      <option>Papel obra 75g</option>
+      <option selected>Papel obra 90g</option>
+      <option>Bookcel</option>
+      <option>Reciclado</option>
+      <option>Ilustración / satinado</option>
+      <option value="otro">Otro:</option>
+    </select>
+    <div class="ca-col" id="ca-papelOtroWrap" style="margin-top:5px">
+      <input class="ca-inp" type="text" id="ca-papelOtroTxt" placeholder="Especificá el tipo de papel...">
+    </div>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Costo por hoja de papel</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-cpapel" value="15" min="0" step="0.5" oninput="caCalc()">
+      <span class="ca-u" data-cu data-sfx="/hoja">$/hoja</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAPA Y ENCUADERNACIÓN ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">📚</span> Tapa y encuadernación</div>
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de tapa</label>
+    <select class="ca-sel">
+      <option>Blanda (cartulina)</option><option selected>Dura (cartón)</option>
+      <option>Dura con tela</option><option>Vinílica / PU leather</option><option>Kraft</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Costo de tapa (por unidad)</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-ctapa" value="350" min="0" oninput="caCalc()">
+      <span class="ca-u" data-cu>$</span>
+    </div>
+  </div>
+
+  <hr class="ca-hr">
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de encuadernación</label>
+    <select class="ca-sel">
+      <option selected>Espiral metálico</option><option>Anillado plástico</option>
+      <option>Wire-O</option><option>Pegado (rústica)</option>
+      <option>Cosido a mano</option><option>Japonesa</option>
+      <option>Sistema de discos</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Costo de encuadernación (por unidad)</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-cenc" value="120" min="0" oninput="caCalc()">
+      <span class="ca-u" data-cu>$</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DISEÑO DE TAPA ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">🎨</span> Diseño de tapa</div>
+
+  <div class="ca-tr">
+    <span class="ca-tl">¿Diseño de tapa personalizado?</span>
+    <label class="ca-sw">
+      <input type="checkbox" id="ca-togTapa" onchange="caOpen('ca-tapaDis',this);caCalc()">
+      <span class="ca-sw-sl"></span>
+    </label>
+  </div>
+  <div class="ca-col" id="ca-tapaDis">
+    <div class="ca-2c">
+      <div class="ca-f">
+        <label class="ca-l">Tiempo de diseño</label>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-minTapa" value="60" min="0" oninput="caCalc()">
+          <span class="ca-u">min</span>
+        </div>
+      </div>
+      <div class="ca-f">
+        <label class="ca-l">Tarifa de diseño</label>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-tarTapa" value="25" min="0" step=".5" oninput="caCalc()">
+          <span class="ca-u" data-cu data-sfx="/min">$/min</span>
+        </div>
+      </div>
+    </div>
+    <p class="ca-note">El costo total de diseño se distribuye entre las unidades del lote.</p>
+  </div>
+
+  <details class="ca-help">
+    <summary>💡 ¿Cómo calculás el costo de diseño?</summary>
+    <div class="ca-hb">
+      Contá el tiempo total desde el primer boceto hasta el archivo listo para imprimir, incluidas todas las rondas de revisión.<br><br>
+      <strong>Tu tarifa debe cubrir:</strong><br>
+      &bull; Salario objetivo mensual<br>
+      &bull; Licencias de software (Illustrator, Canva Pro, etc.)<br>
+      &bull; Depreciación de tu equipo<br>
+      &bull; Tiempo de reuniones y comunicación con el cliente<br><br>
+      <strong>Ejemplo:</strong> Si querés ganar $720.000/mes, trabajás 6h/día × 20 días = 7.200 min/mes.<br>
+      Tarifa = $720.000 ÷ 7.200 = <strong>$100/min</strong>.<br><br>
+      <em>El diseño de interior suele llevar más tiempo que el de tapa. Calculalos por separado.</em>
+    </div>
+  </details>
+
+  <hr class="ca-hr">
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de impresión de tapa</label>
+    <select class="ca-sel" id="ca-impTapa" onchange="caCalc()">
+      <option value="0">Sin impresión</option>
+      <option value="1">1 color / serigrafía</option>
+      <option value="2" selected>Full color (4 colores)</option>
+      <option value="3">UV spot / relieve</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Costo impresión tapa (por unidad)</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-cImpTapa" value="80" min="0" oninput="caCalc()">
+      <span class="ca-u" data-cu>$</span>
+    </div>
+  </div>
+
+  <div class="ca-tr" style="margin-top:4px">
+    <span class="ca-tl">Foil (estampado metálico)</span>
+    <label class="ca-sw">
+      <input type="checkbox" id="ca-togFoil" onchange="caOpen('ca-foilCont',this);caCalc()">
+      <span class="ca-sw-sl"></span>
+    </label>
+  </div>
+  <div class="ca-col" id="ca-foilCont">
+    <div class="ca-f">
+      <label class="ca-l">Costo del foil (por unidad)</label>
+      <div class="ca-ig">
+        <input class="ca-inp" type="number" id="ca-cFoil" value="150" min="0" oninput="caCalc()">
+        <span class="ca-u" data-cu>$</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="ca-hr">
+
+  <div class="ca-f">
+    <label class="ca-l">Plastificado / Laminado</label>
+    <select class="ca-sel" id="ca-plast" onchange="caPlast();caCalc()">
+      <option value="0">Sin plastificado</option>
+      <option value="mate" selected>Mate</option>
+      <option value="brillo">Brillo</option>
+      <option value="pouch">Pouch de plastificado</option>
+    </select>
+  </div>
+
+  <div class="ca-col" id="ca-micronWrap">
+    <div class="ca-f" style="margin-top:5px">
+      <label class="ca-l">Micronaje del pouch</label>
+      <select class="ca-sel" id="ca-micron" onchange="caCalc()">
+        <option value="80">80 μ — Fino (económico)</option>
+        <option value="100" selected>100 μ — Estándar</option>
+        <option value="125">125 μ — Medio grueso</option>
+        <option value="150">150 μ — Grueso</option>
+        <option value="175">175 μ — Extra grueso / semi-rígido</option>
+        <option value="250">250 μ — Rígido (tipo tarjeta)</option>
+      </select>
+      <p class="ca-note" style="margin-top:5px">Mayor micronaje = mayor rigidez. Para tapas de cuadernos se recomienda 100–150 μ.</p>
+    </div>
+  </div>
+
+  <div class="ca-f" style="margin-top:8px">
+    <label class="ca-l">Costo de plastificado / laminado (por unidad)</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-cPlast" value="50" min="0" oninput="caCalc()">
+      <span class="ca-u" data-cu>$</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DISEÑO DE INTERIOR ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">✏️</span> Diseño de interior</div>
+
+  <div class="ca-tr">
+    <span class="ca-tl">¿Interior personalizado?</span>
+    <label class="ca-sw">
+      <input type="checkbox" id="ca-togInt" onchange="caOpen('ca-intDis',this);caCalc()">
+      <span class="ca-sw-sl"></span>
+    </label>
+  </div>
+  <div class="ca-col" id="ca-intDis">
+    <div class="ca-2c">
+      <div class="ca-f">
+        <label class="ca-l">Tiempo de diseño</label>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-minInt" value="120" min="0" oninput="caCalc()">
+          <span class="ca-u">min</span>
+        </div>
+      </div>
+      <div class="ca-f">
+        <label class="ca-l">Tarifa de diseño</label>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-tarInt" value="25" min="0" step=".5" oninput="caCalc()">
+          <span class="ca-u" data-cu data-sfx="/min">$/min</span>
+        </div>
+      </div>
+    </div>
+    <p class="ca-note">El costo total de diseño se distribuye entre las unidades del lote.</p>
+  </div>
+
+  <details class="ca-help">
+    <summary>💡 ¿Cómo calculás el costo de diseño?</summary>
+    <div class="ca-hb">
+      Contá el tiempo total desde el primer boceto hasta el archivo listo para imprimir, incluidas todas las rondas de revisión.<br><br>
+      <strong>Tu tarifa debe cubrir:</strong><br>
+      &bull; Salario objetivo mensual<br>
+      &bull; Licencias de software (Illustrator, Canva Pro, etc.)<br>
+      &bull; Depreciación de tu equipo<br>
+      &bull; Tiempo de reuniones y comunicación con el cliente<br><br>
+      <strong>Ejemplo:</strong> Si querés ganar $720.000/mes, trabajás 6h/día × 20 días = 7.200 min/mes.<br>
+      Tarifa = $720.000 ÷ 7.200 = <strong>$100/min</strong>.<br><br>
+      <em>El diseño de interior suele llevar más tiempo que el de tapa. Calculalos por separado.</em>
+    </div>
+  </details>
+
+  <hr class="ca-hr">
+
+  <div class="ca-f">
+    <label class="ca-l">Tipo de impresión interior</label>
+    <select class="ca-sel" id="ca-impInt" onchange="caCalc()">
+      <option value="0">Sin impresión (papel en blanco)</option>
+      <option value="1" selected>Líneas / cuadriculado / puntos</option>
+      <option value="2">B/N personalizado</option>
+      <option value="3">Color</option>
+    </select>
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Costo impresión interior (por hoja)</label>
+    <div class="ca-ig">
+      <input class="ca-inp" type="number" id="ca-cImpInt" value="5" min="0" step=".5" oninput="caCalc()">
+      <span class="ca-u" data-cu data-sfx="/hoja">$/hoja</span>
+    </div>
+    <p class="ca-note" style="margin-top:5px">Se multiplica por el total de hojas interiores.</p>
+  </div>
+</div>
+
+<!-- ═══ EXTRAS ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">🎀</span> Extras y accesorios</div>
+  <div class="ca-chks">
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-cinta" onchange="caCk('ca-cv-cinta',this);caCalc()">
+      <span class="ca-cn">Cinta marcapáginas</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-cinta" value="30" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-bols" onchange="caCk('ca-cv-bols',this);caCalc()">
+      <span class="ca-cn">Bolsillo interior</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-bols" value="40" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-elas" onchange="caCk('ca-cv-elas',this);caCalc()">
+      <span class="ca-cn">Elástico de cierre</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-elas" value="25" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-sep" onchange="caCk('ca-cv-sep',this);caCalc()">
+      <span class="ca-cn">Separadores</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-sep" value="60" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-pp" onchange="caCk('ca-cv-pp',this);caCalc()">
+      <span class="ca-cn">Porta-pluma</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-pp" value="35" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+    <div class="ca-chkr">
+      <input type="checkbox" id="ca-ck-pack" onchange="caCk('ca-cv-pack',this);caCalc()">
+      <span class="ca-cn">Empaque / packaging</span>
+      <div class="ca-cc ca-ig"><input class="ca-inp" type="number" id="ca-cv-pack" value="80" min="0" disabled oninput="caCalc()"><span class="ca-u" data-cu>$</span></div>
+    </div>
+  </div>
+  <div id="ca-custom-extras" class="ca-chks" style="margin-top:8px"></div>
+  <button class="ca-add-btn" onclick="caAddExtra()">+ Agregar accesorio</button>
+</div>
+
+<!-- ═══ PRODUCCIÓN Y PRECIO ═══ -->
+<div class="ca-card">
+  <div class="ca-ct"><span class="ico">⚙️</span> Producción y precio</div>
+
+  <div class="ca-f">
+    <label class="ca-l">Cantidad del lote (unidades)</label>
+    <input class="ca-inp" type="number" id="ca-cant" value="10" min="1" oninput="caCalc()">
+  </div>
+
+  <div class="ca-f">
+    <label class="ca-l">Mano de obra</label>
+    <div class="ca-2c" style="align-items:stretch">
+      <div>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-minProd" value="45" min="0" oninput="caCalc()">
+          <span class="ca-u">min/u</span>
+        </div>
+        <div class="ca-sub">Tiempo por unidad</div>
+      </div>
+      <div>
+        <div class="ca-ig">
+          <input class="ca-inp" type="number" id="ca-tarProd" value="20" min="0" step=".5" oninput="caCalc()">
+          <span class="ca-u" data-cu data-sfx="/min">$/min</span>
+        </div>
+        <div class="ca-sub">Costo por minuto</div>
+      </div>
+    </div>
+  </div>
+
+  <details class="ca-help">
+    <summary>💡 ¿Cómo calculás tu costo por minuto?</summary>
+    <div class="ca-hb">
+      El <strong>costo por minuto</strong> cubre tu mano de obra en producción: armado, cosido, pegado y cualquier tarea física del proceso.<br><br>
+      <strong>Cómo calcularlo:</strong><br>
+      1. Definí cuánto querés ganar por hora<br>
+      2. Dividilo entre 60<br><br>
+      <strong>Ejemplo:</strong> $3.600/h ÷ 60 = <strong>$60/min</strong><br><br>
+      <em>Incluí en tu objetivo: aguinaldo, días libres y un fondo de imprevistos.</em>
+    </div>
+  </details>
+
+  <hr class="ca-hr">
+
+  <div class="ca-2c">
+    <div class="ca-f">
+      <label class="ca-l">Gastos generales</label>
+      <div class="ca-ig">
+        <input class="ca-inp" type="number" id="ca-gg" value="15" min="0" max="500" oninput="caCalc()">
+        <span class="ca-u">%</span>
+      </div>
+    </div>
+    <div class="ca-f">
+      <label class="ca-l">Margen de ganancia</label>
+      <div class="ca-ig">
+        <input class="ca-inp" type="number" id="ca-margen" value="40" min="0" oninput="caCalc()">
+        <span class="ca-u">%</span>
+      </div>
+    </div>
+  </div>
+
+  <details class="ca-help">
+    <summary>💡 ¿Qué son los gastos generales?</summary>
+    <div class="ca-hb">
+      Costos <strong>indirectos</strong> que hacen posible tu producción pero que no se asignan a un producto específico:<br><br>
+      &bull; Alquiler del espacio de trabajo<br>
+      &bull; Luz, gas, internet<br>
+      &bull; Herramientas (cortadora, encuadernadora, guillotina)<br>
+      &bull; Adhesivos, papeles de prueba y descartables<br>
+      &bull; Desgaste y mantenimiento de equipos<br><br>
+      <strong>Rango típico:</strong> entre el 10% y el 25% del costo directo.
+    </div>
+  </details>
+</div>
+
+<!-- ═══ RESULTADO ═══ -->
+<div class="ca-res ca-span2">
+  <div class="ca-res-rainbow"></div>
+  <div class="ca-res-h">Resultado del cálculo</div>
+  <div class="ca-rg">
+    <div class="ca-st"><div class="ca-sl">Materiales</div><div class="ca-sv" id="ca-r-mat">$0</div></div>
+    <div class="ca-st"><div class="ca-sl">Diseño tapa / u.</div><div class="ca-sv" id="ca-r-dtapa">$0</div></div>
+    <div class="ca-st"><div class="ca-sl">Diseño interior / u.</div><div class="ca-sv" id="ca-r-dint">$0</div></div>
+    <div class="ca-st"><div class="ca-sl">Mano de obra</div><div class="ca-sv" id="ca-r-mo">$0</div></div>
+    <div class="ca-st"><div class="ca-sl">Gastos generales</div><div class="ca-sv" id="ca-r-gg">$0</div></div>
+    <div class="ca-st"><div class="ca-sl">Costo total / u.</div><div class="ca-sv" id="ca-r-costo">$0</div></div>
+  </div>
+  <div class="ca-rm">
+    <div>
+      <div class="lbl">Precio de venta sugerido</div>
+      <div class="sub" id="ca-r-lote">Lote de 10 unidades</div>
+    </div>
+    <div style="text-align:right">
+      <div class="pr" id="ca-r-precio">$0</div>
+      <div class="sub" id="ca-r-totalote">Total lote: $0</div>
+    </div>
+  </div>
+  <div class="ca-bw">
+    <div class="ca-bt">Composición del costo unitario</div>
+    <div class="ca-bar">
+      <div class="ca-bs" id="ca-b-mat" style="background:#009CDF;width:0%"></div>
+      <div class="ca-bs" id="ca-b-dis" style="background:#E71680;width:0%"></div>
+      <div class="ca-bs" id="ca-b-mo"  style="background:#F5A076;width:0%"></div>
+      <div class="ca-bs" id="ca-b-gg"  style="background:#7E8CC4;width:0%"></div>
+    </div>
+    <div class="ca-leg">
+      <div class="ca-li"><div class="ca-ld" style="background:#009CDF"></div>Materiales</div>
+      <div class="ca-li"><div class="ca-ld" style="background:#E71680"></div>Diseño</div>
+      <div class="ca-li"><div class="ca-ld" style="background:#F5A076"></div>Mano de obra</div>
+      <div class="ca-li"><div class="ca-ld" style="background:#7E8CC4"></div>Gastos grales.</div>
+    </div>
+  </div>
+  <div class="ca-acts">
+    <button class="ca-btn primary" onclick="caCopiar()">📋 Copiar resumen</button>
+    <button class="ca-btn" onclick="caReset()">↺ Restablecer valores</button>
+  </div>
+</div>
+
+</div><!-- /ca-grid -->
+</div><!-- /ca -->
+
+<script>
+(function(){
+'use strict';
+var sym='$', xCount=0;
+
+function v(id){return parseFloat(document.getElementById(id).value)||0;}
+function chk(id){return document.getElementById(id).checked;}
+function el(id){return document.getElementById(id);}
+function setText(id,t){el(id).textContent=t;}
+function fmt(n){
+  var s=n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return sym.length>1?sym+' '+s:sym+s;
+}
+
+window.caCur=function(s,btn){
+  sym=s;
+  document.querySelectorAll('#ca .ca-pills button').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  document.querySelectorAll('#ca [data-cu]').forEach(function(e){e.textContent=s+(e.dataset.sfx||'');});
+  document.querySelectorAll('.ca-dyn-u').forEach(function(e){e.textContent=s;});
+  caCalc();
+};
+
+window.caOpen=function(id,cb){el(id).classList.toggle('open',cb.checked);};
+
+window.caPapelOtro=function(){
+  el('ca-papelOtroWrap').classList.toggle('open',el('ca-tipopapel').value==='otro');
+};
+
+window.caPlast=function(){
+  var val=el('ca-plast').value;
+  el('ca-cPlast').disabled=(val==='0');
+  el('ca-micronWrap').classList.toggle('open',val==='pouch');
+};
+
+window.caCk=function(costId,cb){el(costId).disabled=!cb.checked;};
+
+window.caAddExtra=function(){
+  var i=++xCount;
+  var row=document.createElement('div');
+  row.className='ca-chkr'; row.id='ca-xr-'+i;
+  row.innerHTML=
+    '<input type="checkbox" checked onchange="caCk(\'ca-xv-'+i+'\',this);caCalc()">'+
+    '<input type="text" class="ca-inp" style="flex:1;min-width:0;font-size:.82rem;padding:6px 8px" placeholder="Nombre del accesorio" oninput="caCalc()">'+
+    '<div class="ca-cc ca-ig">'+
+      '<input class="ca-inp" type="number" id="ca-xv-'+i+'" value="0" min="0" oninput="caCalc()">'+
+      '<span class="ca-u ca-dyn-u">'+sym+'</span>'+
+    '</div>'+
+    '<button class="ca-rm-btn" onclick="caRmExtra('+i+')" title="Eliminar">✕</button>';
+  el('ca-custom-extras').appendChild(row);
+  row.querySelector('input[type=text]').focus();
+  caCalc();
+};
+
+window.caRmExtra=function(i){
+  var r=el('ca-xr-'+i);
+  if(r){r.parentNode.removeChild(r);caCalc();}
+};
+
+window.caCalc=function(){
+  var hojas=v('ca-hojas'), cant=Math.max(v('ca-cant'),1);
+
+  var matPapel =hojas*v('ca-cpapel');
+  var matTapa  =v('ca-ctapa');
+  var matEnc   =v('ca-cenc');
+  var matImpT  =el('ca-impTapa').value!=='0'?v('ca-cImpTapa'):0;
+  var matFoil  =chk('ca-togFoil')?v('ca-cFoil'):0;
+  var matPlast =el('ca-plast').value!=='0'?v('ca-cPlast'):0;
+  var matImpI  =el('ca-impInt').value!=='0'?hojas*v('ca-cImpInt'):0;
+
+  var fixed=[['ca-ck-cinta','ca-cv-cinta'],['ca-ck-bols','ca-cv-bols'],
+             ['ca-ck-elas','ca-cv-elas'],['ca-ck-sep','ca-cv-sep'],
+             ['ca-ck-pp','ca-cv-pp'],['ca-ck-pack','ca-cv-pack']];
+  var matAcc=fixed.reduce(function(s,p){return s+(chk(p[0])?v(p[1]):0);},0);
+
+  document.querySelectorAll('#ca-custom-extras .ca-chkr').forEach(function(row){
+    var cb=row.querySelector('input[type=checkbox]');
+    var cost=row.querySelector('input[type=number]');
+    if(cb&&cb.checked&&cost)matAcc+=parseFloat(cost.value)||0;
+  });
+
+  var totalMat=matPapel+matTapa+matEnc+matImpT+matFoil+matPlast+matImpI+matAcc;
+  var disTU=chk('ca-togTapa')?(v('ca-minTapa')*v('ca-tarTapa'))/cant:0;
+  var disIU=chk('ca-togInt') ?(v('ca-minInt') *v('ca-tarInt')) /cant:0;
+  var totalDis=disTU+disIU;
+  var mo=v('ca-minProd')*v('ca-tarProd');
+  var sub=totalMat+totalDis+mo;
+  var gg=sub*(v('ca-gg')/100);
+  var costo=sub+gg;
+  var precio=costo*(1+v('ca-margen')/100);
+
+  setText('ca-r-mat',  fmt(totalMat));
+  setText('ca-r-dtapa',fmt(disTU));
+  setText('ca-r-dint', fmt(disIU));
+  setText('ca-r-mo',   fmt(mo));
+  setText('ca-r-gg',   fmt(gg));
+  setText('ca-r-costo',fmt(costo));
+  setText('ca-r-precio',fmt(precio));
+  setText('ca-r-lote','Lote de '+cant+' unidad'+(cant!==1?'es':''));
+  setText('ca-r-totalote','Total lote: '+fmt(precio*cant));
+
+  if(costo>0){
+    var p=function(x){return(x/costo*100).toFixed(1)+'%';};
+    el('ca-b-mat').style.width=p(totalMat);
+    el('ca-b-dis').style.width=p(totalDis);
+    el('ca-b-mo').style.width =p(mo);
+    el('ca-b-gg').style.width =p(gg);
+  }
+};
+
+window.caCopiar=function(){
+  var tipo=el('ca-tipo').options[el('ca-tipo').selectedIndex].text;
+  var tam =el('ca-tam').options[el('ca-tam').selectedIndex].text;
+  var cant=Math.max(v('ca-cant'),1);
+  var sep ='─────────────────────────────';
+  var txt=[
+    'PRESUPUESTO: '+tipo+' | '+tam+' | Lote de '+cant+' unidades',sep,
+    'Materiales:        '+el('ca-r-mat').textContent,
+    'Diseño tapa:       '+el('ca-r-dtapa').textContent,
+    'Diseño interior:   '+el('ca-r-dint').textContent,
+    'Mano de obra:      '+el('ca-r-mo').textContent,
+    'Gastos generales:  '+el('ca-r-gg').textContent,sep,
+    'Costo por unidad:  '+el('ca-r-costo').textContent,
+    'Precio de venta:   '+el('ca-r-precio').textContent,
+    'Total lote ('+cant+' u.): '+el('ca-r-totalote').textContent.replace('Total lote: ','')
+  ].join('\n');
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(txt).then(function(){alert('Resumen copiado al portapapeles');});
+  } else {
+    var ta=document.createElement('textarea');
+    ta.value=txt;ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);alert('Resumen copiado al portapapeles');
+  }
+};
+
+window.caReset=function(){
+  if(!confirm('¿Restablecer todos los valores?'))return;
+  document.querySelectorAll('#ca .ca-inp').forEach(function(e){e.value=e.defaultValue;e.disabled=false;});
+  document.querySelectorAll('#ca .ca-sel').forEach(function(e){
+    for(var i=0;i<e.options.length;i++){if(e.options[i].defaultSelected){e.value=e.options[i].value;break;}}
+  });
+  document.querySelectorAll('#ca input[type=checkbox]').forEach(function(e){e.checked=false;});
+  document.querySelectorAll('#ca .ca-col').forEach(function(e){e.classList.remove('open');});
+  ['ca-cv-cinta','ca-cv-bols','ca-cv-elas','ca-cv-sep','ca-cv-pp','ca-cv-pack'].forEach(function(id){el(id).disabled=true;});
+  el('ca-custom-extras').innerHTML='';
+  xCount=0;
+  caPlast();
+  caCalc();
+};
+
+caPlast();
+caCalc();
+})();
+</script>
