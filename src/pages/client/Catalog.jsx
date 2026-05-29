@@ -149,9 +149,13 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
   function handleAdd() {
     if (!product || effectivePrice == null) return
     if (promo.tipo_promo === 'nxm' && promo.promo_n && promo.promo_m) {
-      // Para NxM: guardamos el precio BASE en el carrito + metadatos de la promo.
-      // calcItemTotal() en CartContext aplicará la lógica correcta según la qty.
-      onAdd(product, addQty, null, badge, basePrice, 'unidad', { promoN: promo.promo_n, promoM: promo.promo_m })
+      // Precio BASE + metadatos: calcItemTotal aplica la lógica por grupos
+      onAdd(product, addQty, null, badge, basePrice, 'unidad',
+        { promoN: promo.promo_n, promoM: promo.promo_m })
+    } else if (promo.tipo_promo === 'cantidad_minima' && promo.qty_minima && promo.descuento_porcentaje) {
+      // Precio BASE + mínimo + descuento: calcItemTotal aplica según qty >= mínimo
+      onAdd(product, addQty, null, badge, basePrice, 'unidad',
+        { promoQtyMin: promo.qty_minima, promoDesc: promo.descuento_porcentaje })
     } else {
       onAdd(product, addQty, null, badge, effectivePrice, 'unidad')
     }

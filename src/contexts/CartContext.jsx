@@ -5,16 +5,27 @@ const CartContext = createContext(null)
 const CART_KEY = 'ads_cart_'
 
 /**
- * Calcula el total de un ítem del carrito aplicando lógica NxM si corresponde.
- * Para NxM: cada grupo de N unidades paga M. Las unidades que no completan
- * un grupo pagan al precio base completo.
- *   Ej: 4 unidades de un 3x2 → 1 grupo (paga 2) + 1 suelta = 3 × precio
+ * Calcula el total de un ítem del carrito aplicando la lógica de promo si corresponde.
+ *
+ * NxM: cada grupo de N unidades paga M. Unidades fuera de un grupo completo
+ *   pagan el precio base.  Ej: 4u de un 3x2 → 1 grupo (paga 2) + 1 suelta = 3× precio.
+ *
+ * Cantidad mínima: si qty >= promoQtyMin todas las unidades obtienen el descuento;
+ *   si qty < promoQtyMin se cobra el precio base completo.
  */
 export function calcItemTotal(item) {
+  // ── NxM ──────────────────────────────────────────────────────────────────
   if (item.promoN && item.promoM && item.qty > 0) {
     const groups    = Math.floor(item.qty / item.promoN)
     const remainder = item.qty % item.promoN
     return (groups * item.promoM + remainder) * item.price
+  }
+  // ── Cantidad mínima ───────────────────────────────────────────────────────
+  if (item.promoQtyMin && item.promoDesc != null && item.qty > 0) {
+    const unitPrice = item.qty >= item.promoQtyMin
+      ? item.price * (1 - item.promoDesc / 100)
+      : item.price
+    return unitPrice * item.qty
   }
   return item.price * item.qty
 }
@@ -86,8 +97,10 @@ export function CartProvider({ children }) {
         presentacion,
         qty,
         unit:         product.unidad,
-        promoN:       promoMeta?.promoN ?? null,
-        promoM:       promoMeta?.promoM ?? null,
+        promoN:       promoMeta?.promoN      ?? null,
+        promoM:       promoMeta?.promoM      ?? null,
+        promoQtyMin:  promoMeta?.promoQtyMin ?? null,
+        promoDesc:    promoMeta?.promoDesc   ?? null,
       }]
     })
 

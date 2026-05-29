@@ -155,7 +155,36 @@ export default function Cart() {
                           </span>
                         </div>
                       )
-                    })() : (
+                    })()
+
+                    /* Cantidad mínima: muestra si el descuento aplica o cuánto falta */
+                    : item.promoQtyMin && item.promoDesc != null ? (() => {
+                      const applied = item.qty >= item.promoQtyMin
+                      const falta   = item.promoQtyMin - item.qty
+                      return (
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          {applied ? (
+                            <>
+                              <span className="text-[0.65rem] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                                {item.promoDesc}% OFF aplicado ✓
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatPrice(item.price * (1 - item.promoDesc / 100))} c/u
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[0.65rem] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
+                                Falta{falta > 1 ? `n ${falta}` : ''} {falta === 1 ? '1 u.' : `${falta} u.`} para {item.promoDesc}% OFF
+                              </span>
+                              <span className="text-xs text-muted-foreground">{formatPrice(item.price)} c/u</span>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()
+
+                    : (
                       <div className="text-sm text-muted-foreground mt-1">{formatPrice(item.price)} × {item.qty}</div>
                     )}
 
