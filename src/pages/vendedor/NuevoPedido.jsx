@@ -986,7 +986,8 @@ export default function NuevoPedido() {
   const [cliente, setCliente]             = useState(initialDraft?.cliente   ?? null)
   const [cart, setCart]                   = useState(initialDraft?.cart      ?? [])
   const [successRef, setSuccessRef]       = useState(null)
-  const [draftRestored, setDraftRestored] = useState(!!initialDraft?.cliente)
+  const [draftRestored, setDraftRestored]   = useState(!!initialDraft?.cliente)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
 
   const draftKey = `${DRAFT_KEY_PREFIX}${vendedor.id}`
 
@@ -1023,18 +1024,43 @@ export default function NuevoPedido() {
         <p className="text-[0.78rem] font-bold text-negro leading-snug">Pedido en progreso recuperado</p>
         <p className="text-[0.7rem] text-muted-foreground truncate">{cliente?.nombre_negocio}</p>
       </div>
-      <button
-        onClick={reset}
-        className="text-[0.7rem] font-semibold text-muted-foreground hover:text-red-600 transition-colors whitespace-nowrap shrink-0"
-      >
-        Descartar
-      </button>
-      <button
-        onClick={() => setDraftRestored(false)}
-        className="text-muted-foreground hover:text-negro transition-colors shrink-0"
-      >
-        <X size={14} />
-      </button>
+
+      {confirmDiscard ? (
+        /* Confirmación destructiva */
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[0.68rem] text-red-700 font-semibold whitespace-nowrap">¿Borrar el pedido?</span>
+          <button
+            onClick={() => { setConfirmDiscard(false); reset() }}
+            className="text-[0.68rem] font-bold bg-red-600 text-white px-2 py-0.5 rounded-md hover:bg-red-700 transition-colors"
+          >
+            Sí, borrar
+          </button>
+          <button
+            onClick={() => setConfirmDiscard(false)}
+            className="text-[0.68rem] font-semibold text-negro hover:text-negro/70 transition-colors px-1"
+          >
+            No
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Acción destructiva — solo abre confirmación, NO borra todavía */}
+          <button
+            onClick={() => setConfirmDiscard(true)}
+            className="text-[0.68rem] font-semibold text-muted-foreground hover:text-red-600 transition-colors whitespace-nowrap shrink-0"
+          >
+            Borrar pedido
+          </button>
+          {/* X = solo cierra el aviso, el pedido se mantiene */}
+          <button
+            onClick={() => setDraftRestored(false)}
+            className="text-muted-foreground hover:text-negro transition-colors shrink-0 p-0.5"
+            title="Cerrar aviso"
+          >
+            <X size={14} />
+          </button>
+        </>
+      )}
     </div>
   )
 
