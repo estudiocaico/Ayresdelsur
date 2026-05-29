@@ -10,7 +10,10 @@ function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }
 
-const EMPTY_FORM = { producto_id: '', texto: '', orden: 0, activo: true }
+const ALL_LISTAS = ['minorista', 'mediano', 'mayorista']
+const LISTA_LABELS = { minorista: 'Minorista', mediano: 'Mediano', mayorista: 'Mayorista' }
+
+const EMPTY_FORM = { producto_id: '', texto: '', orden: 0, activo: true, listas_precios: [...ALL_LISTAS] }
 
 export default function Promociones() {
   const [promos, setPromos]       = useState([])
@@ -28,7 +31,7 @@ export default function Promociones() {
       supabase
         .from('promociones')
         .select(`
-          id, texto, orden, activo, created_at,
+          id, texto, orden, activo, listas_precios, created_at,
           productos(id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad)
         `)
         .order('orden'),
@@ -53,7 +56,13 @@ export default function Promociones() {
 
   function openEdit(promo) {
     setEditId(promo.id)
-    setForm({ producto_id: promo.producto_id ?? promo.productos?.id ?? '', texto: promo.texto ?? '', orden: promo.orden, activo: promo.activo })
+    setForm({
+      producto_id: promo.producto_id ?? promo.productos?.id ?? '',
+      texto: promo.texto ?? '',
+      orden: promo.orden,
+      activo: promo.activo,
+      listas_precios: promo.listas_precios ?? [...ALL_LISTAS],
+    })
     setShowForm(true)
   }
 
@@ -71,6 +80,7 @@ export default function Promociones() {
       texto: form.texto || null,
       orden: Number(form.orden) || 0,
       activo: form.activo,
+      listas_precios: form.listas_precios.length ? form.listas_precios : [...ALL_LISTAS],
     }
     if (editId) {
       await supabase.from('promociones').update(payload).eq('id', editId)
@@ -154,6 +164,32 @@ export default function Promociones() {
                 maxLength={80}
               />
               <p className="text-xs text-muted-foreground">{form.texto.length}/80 — aparece debajo del nombre del producto.</p>
+            </div>
+
+            {/* Mostrar a — price list checkboxes */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Mostrar a</Label>
+              <div className="flex gap-3 flex-wrap">
+                {ALL_LISTAS.map(lista => (
+                  <label key={lista} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.listas_precios.includes(lista)}
+                      onChange={e => {
+                        setForm(f => ({
+                          ...f,
+                          listas_precios: e.target.checked
+                            ? [...f.listas_precios, lista]
+                            : f.listas_precios.filter(l => l !== lista),
+                        }))
+                      }}
+                      className="w-4 h-4 accent-amarillo"
+                    />
+                    <span className="text-sm text-negro">{LISTA_LABELS[lista]}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">La promo solo aparecerá a los clientes con esas listas de precio.</p>
             </div>
 
             {/* Orden + Activo */}
@@ -246,7 +282,12 @@ export default function Promociones() {
                   {promo.texto && (
                     <div className="text-xs text-muted-foreground truncate mt-0.5">"{promo.texto}"</div>
                   )}
-                  <div className="text-xs font-bold text-amarillo mt-0.5">{product?.precio ? formatPrice(product.precio) : ''}</div>
+                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                    <span className="text-xs font-bold text-amarillo">{product?.precio ? formatPrice(product.precio) : ''}</span>
+                    {(promo.listas_precios ?? ALL_LISTAS).map(l => (
+                      <span key={l} className="text-[0.6rem] font-bold uppercase bg-cream-dark text-negro/60 px-1.5 py-0.5 rounded-full">{LISTA_LABELS[l]}</span>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Active toggle */}

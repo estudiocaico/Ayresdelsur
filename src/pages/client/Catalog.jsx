@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../hooks/useCart'
@@ -199,15 +199,6 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [presentacion, setPresentacion]       = useState('unidad')
   const [imgSrc, setImgSrc]   = useState(product.imagen_url ?? null)
   const [imgFailed, setImgFailed] = useState(false)
-  const imgTimerRef = useRef(null)
-
-  // Timeout de 4 s: fallback a emoji si la URL se cuelga y nunca dispara onLoad/onError.
-  // El timer se cancela en onLoad para que imágenes que sí cargan no desaparezcan.
-  useEffect(() => {
-    if (!imgSrc || imgFailed) return
-    imgTimerRef.current = setTimeout(() => setImgFailed(true), 4000)
-    return () => clearTimeout(imgTimerRef.current)
-  }, [imgSrc]) // ← solo depende de imgSrc, no de imgFailed
 
   // Reset presentation when variant changes (pack/pallet may not be available on new variant)
   function handleVariantChange(varId) {
@@ -260,7 +251,6 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
             src={imgSrc}
             alt={product.nombre}
             className="absolute inset-0 w-full h-full object-cover"
-            onLoad={() => clearTimeout(imgTimerRef.current)}
             onError={() => {
               if (imgSrc.includes('front_es.400.jpg')) {
                 setImgSrc(imgSrc.replace('front_es.400.jpg', 'front.400.jpg'))
@@ -377,7 +367,8 @@ export default function Catalog() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: prods }, { data: cats }, { data: cliente }, { data: promoData }] = await Promise.all([
+      // Step 1: load catalog + client data in parallel
+      const [{ data: prods }, { data: cats }, { data: cliente }] = await Promise.all([
         supabase
           .from('productos')
           .select('*, categorias(nombre), variantes_producto(*)')
@@ -393,16 +384,28 @@ export default function Catalog() {
           .select('lista_precios')
           .eq('user_id', user.id)
           .single(),
-        supabase
-          .from('promociones')
-          .select('id, texto, orden, productos(id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad)')
-          .eq('activo', true)
-          .order('orden'),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
-      setPromos(promoData ?? [])
       if (cliente?.lista_precios) setListaPrecio(cliente.lista_precios)
+
+      // Step 2: load promos separately (two-step to avoid FK-join cache issues)
+      const { data: promoRows } = await supabase
+        .from('promociones')
+        .select('id, texto, orden, listas_precios, producto_id')
+        .eq('activo', true)
+        .order('orden')
+
+      if (promoRows?.length) {
+        const ids = [...new Set(promoRows.map(p => p.producto_id))]
+        const { data: promoProds } = await supabase
+          .from('productos')
+          .select('id, nombre, precio, precio_mediano, precio_mayorista, imagen_url, unidad')
+          .in('id', ids)
+        const prodMap = Object.fromEntries((promoProds ?? []).map(p => [p.id, p]))
+        setPromos(promoRows.map(p => ({ ...p, productos: prodMap[p.producto_id] ?? null })))
+      }
+
       setLoading(false)
     }
     load()
@@ -417,6 +420,12 @@ export default function Catalog() {
       return matchCat && matchSearch
     })
   }, [products, activeCategory, search])
+
+  // Only show promos targeted at the client's price list
+  const visiblePromos = useMemo(() =>
+    promos.filter(p => !p.listas_precios?.length || p.listas_precios.includes(listaPrecio)),
+    [promos, listaPrecio]
+  )
 
   if (loading) {
     return (
@@ -480,14 +489,14 @@ export default function Catalog() {
       </div>
 
       {/* Promo slider */}
-      {promos.length > 0 && (
+      {visiblePromos.length > 0 && (
         <div className="max-w-[600px] mx-auto pt-3.5 pb-1">
           <div className="flex items-center gap-1.5 px-4 mb-2">
             <Zap size={13} className="text-amarillo" />
             <span className="text-[0.72rem] font-extrabold uppercase tracking-widest text-negro/60">Destacados</span>
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {promos.map(promo => (
+            {visiblePromos.map(promo => (
               <PromoCard
                 key={promo.id}
                 promo={promo}
