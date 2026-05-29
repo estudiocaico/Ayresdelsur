@@ -282,7 +282,7 @@ export default function AdminOrders() {
       setLoading(true)
       let q = supabase
         .from('prepedidos')
-        .select('id, numero_referencia, total, estado, created_at, fecha_visita, vendedor_id, clientes(nombre_negocio, direccion), vendedores(nombre)')
+        .select('id, numero_referencia, total, estado, created_at, fecha_visita, vendedor_id, tomado_en_visita, clientes(nombre_negocio, direccion), vendedores(nombre)')
         .order('created_at', { ascending: false })
 
       if (estado !== 'Todos') q = q.eq('estado', estado)
@@ -473,7 +473,14 @@ export default function AdminOrders() {
               )}
               {filtered.map(p => (
                 <TableRow key={p.id} className="hover:bg-cream">
-                  <TableCell className="font-bold text-sm">{p.numero_referencia}</TableCell>
+                  <TableCell>
+                    <div className="font-bold text-sm">{p.numero_referencia}</div>
+                    {p.tomado_en_visita && (
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[0.6rem] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
+                        🛒 Tomado en visita
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm font-medium">{p.clientes?.nombre_negocio ?? '—'}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{p.clientes?.direccion ?? '—'}</TableCell>
                   <TableCell>

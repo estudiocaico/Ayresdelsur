@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, UserPlus, Pencil, ToggleLeft, ToggleRight, Search } from 'lucide-react'
+import { Loader2, UserPlus, Pencil, ToggleLeft, ToggleRight, Search, CheckCircle } from 'lucide-react'
 
 const EMPTY_NEW = {
   nombre_negocio: '', razon_social: '', cuit: '',
@@ -89,6 +89,11 @@ export default function AdminClients() {
   async function toggleActive(client) {
     await supabase.from('clientes').update({ activo: !client.activo }).eq('id', client.id)
     setClients(prev => prev.map(c => c.id === client.id ? { ...c, activo: !client.activo } : c))
+  }
+
+  async function approveClient(client) {
+    await supabase.from('clientes').update({ pendiente_aprobacion: false, activo: true }).eq('id', client.id)
+    setClients(prev => prev.map(c => c.id === client.id ? { ...c, pendiente_aprobacion: false, activo: true } : c))
   }
 
   const FieldRow = ({ label, children }) => (
@@ -304,10 +309,15 @@ export default function AdminClients() {
                   </TableRow>
                 )
                 return filtered.map(c => (
-                <TableRow key={c.id} className="hover:bg-cream">
+                <TableRow key={c.id} className={`hover:bg-cream ${c.pendiente_aprobacion ? 'bg-orange-50' : ''}`}>
                   <TableCell>
                     <div className="font-semibold text-sm">{c.nombre_negocio}</div>
                     {c.razon_social && <div className="text-[0.75rem] text-muted-foreground">{c.razon_social}</div>}
+                    {c.pendiente_aprobacion && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[0.62rem] font-bold uppercase tracking-wide bg-orange-100 text-orange-800 border border-orange-200">
+                        ⏳ Requiere aprobación
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{c.cuit ?? '—'}</TableCell>
                   <TableCell className="text-sm">{c.direccion}</TableCell>
@@ -320,7 +330,13 @@ export default function AdminClients() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {c.pendiente_aprobacion && (
+                        <Button size="sm" onClick={() => approveClient(c)}
+                          className="h-7 px-2 text-xs gap-1 bg-orange-500 text-white hover:bg-orange-600">
+                          <CheckCircle size={11} /> Aprobar
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)} className="h-7 px-2 text-xs gap-1">
                         <Pencil size={11} /> Editar
                       </Button>

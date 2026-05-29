@@ -17,7 +17,8 @@ export default function PrivateRoute({ role }) {
 
   if (role && profile?.role !== role) {
     // Redirigir al area correcta segun rol
-    if (profile?.role === 'admin') return <Navigate to="/admin" replace />
+    if (profile?.role === 'admin')    return <Navigate to="/admin"    replace />
+    if (profile?.role === 'vendedor') return <Navigate to="/vendedor" replace />
     return <Navigate to="/" replace />
   }
 

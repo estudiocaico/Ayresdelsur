@@ -21,6 +21,10 @@ import AdminVendedores from './pages/admin/Vendedores'
 import AdminConfiguracion from './pages/admin/Configuracion'
 import AdminPromociones from './pages/admin/Promociones'
 import MyOrders from './pages/client/MyOrders'
+import VendedorLayout from './pages/vendedor/VendedorLayout'
+import MisVisitas from './pages/vendedor/MisVisitas'
+import NuevoPedido from './pages/vendedor/NuevoPedido'
+import MiPerfil from './pages/vendedor/MiPerfil'
 
 export default function App() {
   return (
@@ -53,6 +57,15 @@ export default function App() {
             <Route path="importar" element={<AdminImport />} />
             <Route path="promociones" element={<AdminPromociones />} />
             <Route path="configuracion" element={<AdminConfiguracion />} />
+          </Route>
+
+          {/* Rutas del vendedor — mobile-first, bottom nav */}
+          <Route path="/vendedor" element={<PrivateRoute role="vendedor" />}>
+            <Route element={<VendedorLayout />}>
+              <Route index element={<MisVisitas />} />
+              <Route path="pedido" element={<NuevoPedido />} />
+              <Route path="perfil" element={<MiPerfil />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
