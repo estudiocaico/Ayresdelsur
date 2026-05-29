@@ -73,7 +73,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        card: "0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)",
+        card: "0 1px 3px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05)",
         "card-hover": "0 2px 8px rgba(0,0,0,0.09), 0 8px 24px rgba(0,0,0,0.07)",
         panel: "0 2px 8px rgba(0,0,0,0.09)",
         "panel-lg": "0 4px 20px rgba(0,0,0,0.14)",

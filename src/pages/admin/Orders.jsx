@@ -477,7 +477,7 @@ export default function AdminOrders() {
                     <div className="font-bold text-sm">{p.numero_referencia}</div>
                     {p.tomado_en_visita && (
                       <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[0.6rem] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
-                        🛒 Tomado en visita
+                        Tomado en visita
                       </span>
                     )}
                   </TableCell>

@@ -1,19 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useVendedor } from './VendedorLayout'
-import { Loader2, Search, ArrowLeft, Plus, Minus, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Loader2, Search, ArrowLeft, Plus, Minus,
+  ShoppingCart, ChevronDown, ChevronUp, CheckCircle,
+} from 'lucide-react'
 
-// ── Utilidades ────────────────────────────────────────────────────────────────
-
-function formatPrice(n) {
-  if (n == null) return '—'
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+// ── Colores de categoría (mismo mapa que el catálogo del cliente) ─────────────
+const CATEGORY_COLORS = {
+  'Almacen':             '#5B8C5A',
+  'Almacén':             '#5B8C5A',
+  'Bebidas':             '#2E85C8',
+  'Bebidas Alcoholicas': '#C4873A',
+  'Bebidas Alcohólicas': '#C4873A',
+  'Lacteos':             '#2E85C8',
+  'Lácteos':             '#2E85C8',
+  'Limpieza':            '#5B7FA6',
+  'Snacks':              '#C4873A',
+  'Vinos':               '#7B3F6E',
 }
 
-function calcTotal(cart) {
-  return cart.reduce((s, i) => s + i.price * i.qty, 0)
-}
-
+// ── Precio base según presentación y lista ────────────────────────────────────
 function getPrecio(product, presentacion, lista) {
   if (presentacion === 'pack') {
     const up = lista === 'mayorista' ? product.precio_pack_mayorista
@@ -34,8 +41,63 @@ function getPrecio(product, presentacion, lista) {
   return product.precio
 }
 
-// ── Cache del catálogo en localStorage (1 hora) ───────────────────────────────
-const CACHE_KEY = 'ads_vendedor_catalog_v1'
+function formatPrice(n) {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+}
+
+// ── Promo helpers (idénticos al catálogo del cliente) ─────────────────────────
+function calcEffectivePrice(promo, basePrice) {
+  switch (promo.tipo_promo) {
+    case 'nxm':
+      if (!promo.promo_n || !promo.promo_m) return basePrice
+      return basePrice * promo.promo_m / promo.promo_n
+    case 'descuento_porcentual':
+      if (!promo.descuento_porcentaje) return basePrice
+      return basePrice * (1 - promo.descuento_porcentaje / 100)
+    case 'precio_especial':
+      return promo.precio_promo ?? basePrice
+    case 'cantidad_minima':
+      // Precio se ajusta dinámicamente según qty en calcTotal
+      return basePrice
+    default:
+      return basePrice
+  }
+}
+
+function promoBadge(promo) {
+  switch (promo.tipo_promo) {
+    case 'nxm':                  return `${promo.promo_n}×${promo.promo_m}`
+    case 'descuento_porcentual': return `${promo.descuento_porcentaje}% OFF`
+    case 'precio_especial':      return 'OFERTA'
+    case 'cantidad_minima':      return `+${promo.qty_minima}u → ${promo.descuento_porcentaje}% OFF`
+    default:                     return 'PROMO'
+  }
+}
+
+function calcAddQty(promo) {
+  if (promo.tipo_promo === 'nxm')            return promo.promo_n ?? 1
+  if (promo.tipo_promo === 'cantidad_minima') return promo.qty_minima ?? 1
+  return 1
+}
+
+// Precio efectivo de un item (tiene en cuenta cantidad_minima dinámicamente)
+function getItemEffectivePrice(item) {
+  if (item.promoType === 'cantidad_minima' && item.promoQtyMin && item.promoDesc != null) {
+    return item.qty >= item.promoQtyMin
+      ? item.basePrice * (1 - item.promoDesc / 100)
+      : item.basePrice
+  }
+  return item.price
+}
+
+// Total del carrito (respeta cantidad_minima dinámicamente)
+function calcTotal(cart) {
+  return cart.reduce((sum, item) => sum + getItemEffectivePrice(item) * item.qty, 0)
+}
+
+// ── Cache del catálogo (1 hora) ───────────────────────────────────────────────
+const CACHE_KEY = 'ads_vendedor_catalog_v2'
 const CACHE_TTL = 60 * 60 * 1000
 
 function getCachedCatalog() {
@@ -76,7 +138,9 @@ function Step1({ onSelect }) {
   const [showForm, setShowForm]   = useState(false)
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
-  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', email: '', cuit: '', lista_precios: '' })
+  const [form, setForm] = useState({
+    nombre: '', telefono: '', direccion: '', email: '', cuit: '', lista_precios: ''
+  })
   const debouncedQuery = useDebounce(query, 300)
 
   useEffect(() => {
@@ -98,15 +162,15 @@ function Step1({ onSelect }) {
     const { data, error: err } = await supabase
       .from('clientes')
       .insert({
-        nombre_negocio:          form.nombre.trim(),
-        telefono:                form.telefono.trim() || null,
-        direccion:               form.direccion.trim() || '',
-        email:                   form.email.trim() || null,
-        cuit:                    form.cuit.trim() || null,
-        lista_precios:           form.lista_precios,
-        activo:                  true,
-        pendiente_aprobacion:    true,
-        creado_por_vendedor_id:  vendedor.id,
+        nombre_negocio:         form.nombre.trim(),
+        telefono:               form.telefono.trim() || null,
+        direccion:              form.direccion.trim() || '',
+        email:                  form.email.trim() || null,
+        cuit:                   form.cuit.trim() || null,
+        lista_precios:          form.lista_precios,
+        activo:                 true,
+        pendiente_aprobacion:   true,
+        creado_por_vendedor_id: vendedor.id,
       })
       .select()
       .single()
@@ -120,9 +184,11 @@ function Step1({ onSelect }) {
   return (
     <div className="px-4 pt-4 pb-6">
       <h2 className="font-display text-xl font-bold text-negro mb-4">Nuevo pedido</h2>
-      <p className="text-[0.82rem] text-muted-foreground mb-3 font-semibold uppercase tracking-wider">Paso 1 — Seleccionar cliente</p>
+      <p className="text-[0.82rem] text-muted-foreground mb-3 font-semibold uppercase tracking-wider">
+        Paso 1 — Seleccionar cliente
+      </p>
 
-      {/* Search */}
+      {/* Búsqueda */}
       <div className="relative mb-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input
@@ -133,10 +199,12 @@ function Step1({ onSelect }) {
           className="w-full pl-9 pr-3 py-2.5 border border-input rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           autoFocus
         />
-        {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />}
+        {searching && (
+          <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />
+        )}
       </div>
 
-      {/* Results */}
+      {/* Resultados */}
       {results.length > 0 && (
         <div className="flex flex-col gap-2 mb-5">
           {results.map(c => (
@@ -168,14 +236,14 @@ function Step1({ onSelect }) {
         <p className="text-sm text-muted-foreground text-center py-4">Sin resultados para "{query}"</p>
       )}
 
-      {/* Divider */}
+      {/* Divisor */}
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-cream-dark" />
         <span className="text-[0.7rem] text-muted-foreground font-semibold">o</span>
         <div className="flex-1 h-px bg-cream-dark" />
       </div>
 
-      {/* Create new */}
+      {/* Crear nuevo */}
       <button
         onClick={() => setShowForm(f => !f)}
         className="w-full py-2.5 border-2 border-dashed border-negro/20 rounded-xl text-sm font-bold text-negro hover:border-negro/40 transition-colors flex items-center justify-center gap-2"
@@ -186,23 +254,29 @@ function Step1({ onSelect }) {
 
       {showForm && (
         <form onSubmit={handleCrear} className="mt-4 bg-white rounded-xl shadow-card p-4 flex flex-col gap-3">
-          <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground">Datos del nuevo cliente</p>
+          <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground">
+            Datos del nuevo cliente
+          </p>
 
           <input required placeholder="Nombre del negocio *" value={form.nombre}
-            onChange={e => setForm(f => ({...f, nombre: e.target.value}))} className={fieldCls} />
+            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={fieldCls} />
           <input required placeholder="Teléfono *" value={form.telefono}
-            onChange={e => setForm(f => ({...f, telefono: e.target.value}))} className={fieldCls} />
+            onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} className={fieldCls} />
           <input placeholder="Dirección" value={form.direccion}
-            onChange={e => setForm(f => ({...f, direccion: e.target.value}))} className={fieldCls} />
+            onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} className={fieldCls} />
           <input placeholder="Email (opcional)" type="email" value={form.email}
-            onChange={e => setForm(f => ({...f, email: e.target.value}))} className={fieldCls} />
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={fieldCls} />
           <input placeholder="CUIT (opcional)" value={form.cuit}
-            onChange={e => setForm(f => ({...f, cuit: e.target.value}))} className={fieldCls} />
+            onChange={e => setForm(f => ({ ...f, cuit: e.target.value }))} className={fieldCls} />
 
           <div className="flex flex-col gap-1">
-            <label className="text-[0.68rem] font-bold uppercase tracking-wider text-muted-foreground">Lista de precios *</label>
-            <select required value={form.lista_precios} onChange={e => setForm(f => ({...f, lista_precios: e.target.value}))}
-              className={fieldCls}>
+            <label className="text-[0.68rem] font-bold uppercase tracking-wider text-muted-foreground">
+              Lista de precios *
+            </label>
+            <select required value={form.lista_precios}
+              onChange={e => setForm(f => ({ ...f, lista_precios: e.target.value }))}
+              className={fieldCls}
+            >
               <option value="">Seleccionar lista...</option>
               <option value="minorista">Minorista</option>
               <option value="mediano">Mediano</option>
@@ -223,18 +297,19 @@ function Step1({ onSelect }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PASO 2 — Catálogo liviano
+// PASO 2 — Catálogo en acordeón
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function Step2({ cliente, cart, setCart, onBack, onNext }) {
-  const [catalog, setCatalog]       = useState(null)  // { productos, categorias, promos }
+  const [catalog, setCatalog]       = useState(null)
   const [loading, setLoading]       = useState(true)
   const [catFilter, setCatFilter]   = useState('')
   const [textFilter, setTextFilter] = useState('')
+  const [expandedId, setExpandedId] = useState(null)
   const [cartOpen, setCartOpen]     = useState(false)
   const lista = cliente.lista_precios ?? 'minorista'
 
-  // ── Carga del catálogo (localStorage cache) ────────────────────────────────
+  // ── Carga del catálogo ─────────────────────────────────────────────────────
   useEffect(() => {
     const cached = getCachedCatalog()
     if (cached) { setCatalog(cached); setLoading(false); return }
@@ -250,7 +325,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
         .order('nombre'),
       supabase.from('categorias').select('id, nombre').order('nombre'),
       supabase.from('promociones')
-        .select('id, producto_id, texto, tipo_promo, descuento_porcentaje, promo_n, promo_m, qty_minima, presentacion, listas_precios')
+        .select('id, producto_id, texto, tipo_promo, descuento_porcentaje, precio_promo, promo_n, promo_m, qty_minima, presentacion, listas_precios')
         .eq('activo', true),
     ]).then(([{ data: prods }, { data: cats }, { data: promos }]) => {
       const data = { productos: prods ?? [], categorias: cats ?? [], promos: promos ?? [] }
@@ -260,20 +335,65 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
     })
   }, [])
 
+  // ── Mapa de promos filtrado por lista de precios ───────────────────────────
+  const promoMap = {}
+  ;(catalog?.promos ?? []).forEach(pr => {
+    if (pr.listas_precios) {
+      try {
+        const lp = JSON.parse(pr.listas_precios)
+        if (Array.isArray(lp) && !lp.includes(lista)) return
+      } catch {}
+    }
+    if (!promoMap[pr.producto_id]) promoMap[pr.producto_id] = []
+    promoMap[pr.producto_id].push(pr)
+  })
+
+  // ── Obtiene la promo más relevante para un producto y presentación ─────────
+  function getBestPromo(productId, presentacion) {
+    const promos = promoMap[productId] ?? []
+    // Promo específica para esta presentación primero, luego la genérica
+    return (
+      promos.find(p => p.presentacion === presentacion) ??
+      promos.find(p => !p.presentacion) ??
+      null
+    )
+  }
+
   // ── Carrito ────────────────────────────────────────────────────────────────
-  function setQty(product, presentacion, qty) {
+  function setQty(product, presentacion, newQty) {
     const key = `${product.id}-${presentacion}`
-    if (qty <= 0) {
+
+    if (newQty <= 0) {
       setCart(prev => prev.filter(i => i.key !== key))
       return
     }
-    const price = getPrecio(product, presentacion, lista) ?? 0
+
+    const basePrice = getPrecio(product, presentacion, lista)
+    if (basePrice == null) return
+
+    const promo = getBestPromo(product.id, presentacion)
+
+    let price = basePrice
+    let promoType = null, promoQtyMin = null, promoDesc = null, promoBadgeLabel = null
+
+    if (promo) {
+      promoType = promo.tipo_promo
+      promoBadgeLabel = promoBadge(promo)
+      if (promo.tipo_promo !== 'cantidad_minima') {
+        price = calcEffectivePrice(promo, basePrice)
+      } else {
+        promoQtyMin = promo.qty_minima
+        promoDesc   = promo.descuento_porcentaje
+      }
+    }
+
     setCart(prev => {
       const existing = prev.find(i => i.key === key)
-      if (existing) return prev.map(i => i.key === key ? { ...i, qty } : i)
+      if (existing) return prev.map(i => i.key === key ? { ...i, qty: newQty } : i)
       return [...prev, {
         key, productId: product.id, name: product.nombre, code: product.codigo_interno,
-        presentacion, price, qty,
+        presentacion, basePrice, price, qty: newQty,
+        promoType, promoQtyMin, promoDesc, promoBadgeLabel,
       }]
     })
   }
@@ -282,7 +402,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
     return cart.find(i => i.key === `${productId}-${presentacion}`)?.qty ?? 0
   }
 
-  // ── Filtrado local (sin llamadas a DB) ─────────────────────────────────────
+  // ── Filtros ────────────────────────────────────────────────────────────────
   const visibleProducts = (catalog?.productos ?? []).filter(p => {
     if (catFilter && p.categoria_id !== catFilter) return false
     if (textFilter) {
@@ -290,13 +410,6 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
       if (!p.nombre.toLowerCase().includes(q) && !p.codigo_interno?.toLowerCase().includes(q)) return false
     }
     return true
-  })
-
-  const promoMap = {}
-  ;(catalog?.promos ?? []).forEach(pr => {
-    const key = pr.producto_id
-    if (!promoMap[key]) promoMap[key] = []
-    promoMap[key].push(pr)
   })
 
   const totalItems = cart.reduce((s, i) => s + i.qty, 0)
@@ -312,12 +425,13 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div>
+      {/* ── Header sticky ──────────────────────────────────────────────────── */}
+      <div className="sticky top-0 bg-cream z-30 px-4 pt-3 pb-2 border-b border-cream-dark">
 
-      {/* Header */}
-      <div className="sticky top-[52px] bg-cream z-30 px-4 pt-3 pb-2 border-b border-cream-dark">
+        {/* Cliente + back */}
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={onBack} className="text-muted-foreground">
+          <button onClick={onBack} className="text-muted-foreground shrink-0">
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1 min-w-0">
@@ -339,10 +453,12 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
         </div>
 
         {/* Chips de categoría */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setCatFilter('')}
-            className={`shrink-0 px-3 py-1 rounded-full text-[0.68rem] font-bold border transition-colors ${!catFilter ? 'bg-negro text-white border-negro' : 'bg-white text-negro border-input'}`}
+            className={`shrink-0 px-3 py-1 rounded-full text-[0.68rem] font-bold border transition-colors ${
+              !catFilter ? 'bg-negro text-white border-negro' : 'bg-white text-negro border-input'
+            }`}
           >
             Todas
           </button>
@@ -350,7 +466,9 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
             <button
               key={cat.id}
               onClick={() => setCatFilter(catFilter === cat.id ? '' : cat.id)}
-              className={`shrink-0 px-3 py-1 rounded-full text-[0.68rem] font-bold border transition-colors ${catFilter === cat.id ? 'bg-negro text-white border-negro' : 'bg-white text-negro border-input'}`}
+              className={`shrink-0 px-3 py-1 rounded-full text-[0.68rem] font-bold border transition-colors ${
+                catFilter === cat.id ? 'bg-negro text-white border-negro' : 'bg-white text-negro border-input'
+              }`}
             >
               {cat.nombre}
             </button>
@@ -358,100 +476,168 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
         </div>
       </div>
 
-      {/* Lista de productos */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+      {/* ── Lista de productos (acordeón) ──────────────────────────────────── */}
+      <div className="px-4 pt-3 pb-32 space-y-1">
         {visibleProducts.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-8">Sin productos.</p>
         )}
+
         {visibleProducts.map(p => {
-          const promos = (promoMap[p.id] ?? []).filter(pr => {
-            if (!pr.listas_precios) return true
-            try { const lp = JSON.parse(pr.listas_precios); return !Array.isArray(lp) || lp.includes(lista) } catch { return true }
-          })
+          const isExpanded  = expandedId === p.id
+          const catColor    = CATEGORY_COLORS[p.categorias?.nombre]
+          const bestPromo   = promoMap[p.id]?.[0] ?? null   // badge indicator
+          const hasInCart   = cart.some(i => i.productId === p.id)
 
           const pres = ['unidad']
           if (p.precio_pack != null)   pres.push('pack')
           if (p.precio_pallet != null) pres.push('pallet')
 
           return (
-            <div key={p.id} className="bg-white rounded-xl px-3.5 py-3 shadow-card">
-              {/* Nombre + código */}
-              <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div
+              key={p.id}
+              className="bg-white rounded-xl overflow-hidden shadow-card"
+              style={{ borderLeft: `3px solid ${catColor ?? '#E8A020'}` }}
+            >
+              {/* Fila de cabecera — click para expandir */}
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
+              >
                 <div className="flex-1 min-w-0">
-                  <span className="font-bold text-[0.95rem] text-negro leading-snug">{p.nombre}</span>
+                  <span className="font-bold text-[0.92rem] text-negro leading-snug">{p.nombre}</span>
                   {p.codigo_interno && (
-                    <span className="text-[0.68rem] text-muted-foreground ml-1.5">({p.codigo_interno})</span>
+                    <span className="text-[0.65rem] text-muted-foreground ml-1.5">({p.codigo_interno})</span>
                   )}
                 </div>
-                {promos.length > 0 && (
-                  <span className="shrink-0 bg-orange-100 text-orange-700 text-[0.6rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border border-orange-200">
-                    🏷️ {promos[0].texto}
-                  </span>
-                )}
-              </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {bestPromo && (
+                    <span className="bg-orange-100 text-orange-700 text-[0.58rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border border-orange-200">
+                      {promoBadge(bestPromo)}
+                    </span>
+                  )}
+                  {hasInCart && (
+                    <span className="w-2 h-2 rounded-full bg-amarillo shrink-0" />
+                  )}
+                  {isExpanded
+                    ? <ChevronUp size={15} className="text-muted-foreground" />
+                    : <ChevronDown size={15} className="text-muted-foreground" />
+                  }
+                </div>
+              </button>
 
-              {/* Precios por presentación + controles */}
-              {pres.map(pr => {
-                const price = getPrecio(p, pr, lista)
-                if (price == null) return null
-                const qty = getQty(p.id, pr)
+              {/* Contenido expandido */}
+              {isExpanded && (
+                <div className="border-t border-cream-dark">
+                  {pres.map((pr, idx) => {
+                    const basePrice = getPrecio(p, pr, lista)
+                    if (basePrice == null) return null
 
-                return (
-                  <div key={pr} className="flex items-center justify-between gap-2 py-1.5 border-t border-cream-dark first:border-t-0">
-                    <div className="min-w-0">
-                      <span className="text-[0.72rem] font-bold text-muted-foreground uppercase">
-                        {pr === 'pack' ? `Pack ×${p.unidades_pack ?? '?'}` : pr === 'pallet' ? `Pallet ×${p.unidades_pallet ?? '?'}` : p.unidad ?? 'Unidad'}
-                      </span>
-                      <span className="ml-1.5 font-bold text-[0.85rem] text-negro">{formatPrice(price)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => setQty(p, pr, qty - 1)}
-                        className="w-7 h-7 rounded-full bg-cream-dark flex items-center justify-center text-negro hover:bg-negro hover:text-white transition-colors"
+                    const promo      = getBestPromo(p.id, pr)
+                    const effPrice   = promo ? calcEffectivePrice(promo, basePrice) : basePrice
+                    const hasDisc    = promo && Math.round(effPrice) < Math.round(basePrice)
+                    const badge      = promo ? promoBadge(promo) : null
+                    const addQtyStep = promo ? calcAddQty(promo) : 1
+                    const qty        = getQty(p.id, pr)
+
+                    const presLabel  = pr === 'pack'
+                      ? `Pack ×${p.unidades_pack ?? '?'}`
+                      : pr === 'pallet'
+                      ? `Pallet ×${p.unidades_pallet ?? '?'}`
+                      : (p.unidad ?? 'Unidad')
+
+                    return (
+                      <div
+                        key={pr}
+                        className={`flex items-center justify-between gap-2 px-3.5 py-2.5 ${
+                          idx > 0 ? 'border-t border-cream-dark' : ''
+                        }`}
                       >
-                        <Minus size={12} />
-                      </button>
-                      <input
-                        type="number" min="0"
-                        value={qty}
-                        onChange={e => setQty(p, pr, parseInt(e.target.value) || 0)}
-                        className="w-10 text-center font-extrabold text-base bg-transparent focus:outline-none"
-                      />
-                      <button
-                        onClick={() => setQty(p, pr, qty + 1)}
-                        className="w-7 h-7 rounded-full bg-negro flex items-center justify-center text-white hover:bg-negro/80 transition-colors"
-                      >
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[0.72rem] font-bold text-muted-foreground uppercase">
+                              {presLabel}
+                            </span>
+                            {badge && (
+                              <span className="bg-orange-100 text-orange-700 text-[0.56rem] font-extrabold uppercase px-1 py-0.5 rounded-full border border-orange-200">
+                                {badge}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-baseline gap-1.5 mt-0.5">
+                            {hasDisc && (
+                              <span className="text-[0.68rem] text-muted-foreground line-through">
+                                {formatPrice(basePrice)}
+                              </span>
+                            )}
+                            <span className="font-bold text-[0.9rem] text-negro">
+                              {formatPrice(effPrice)}
+                            </span>
+                            {promo?.tipo_promo === 'cantidad_minima' && (
+                              <span className="text-[0.62rem] text-muted-foreground">
+                                (sin promo)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Controles */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => setQty(p, pr, qty - 1)}
+                            className="w-7 h-7 rounded-full bg-cream-dark flex items-center justify-center text-negro hover:bg-negro hover:text-white transition-colors"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={qty}
+                            onChange={e => setQty(p, pr, parseInt(e.target.value) || 0)}
+                            className="w-10 text-center font-extrabold text-base bg-transparent focus:outline-none"
+                          />
+                          <button
+                            onClick={() => setQty(p, pr, qty === 0 ? addQtyStep : qty + addQtyStep)}
+                            className="w-7 h-7 rounded-full bg-negro flex items-center justify-center text-white hover:bg-negro/80 transition-colors"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
-      {/* Carrito flotante */}
+      {/* ── Carrito flotante ───────────────────────────────────────────────── */}
       {totalItems > 0 && (
         <div className="fixed bottom-[60px] left-0 right-0 z-40 px-4 pb-3">
           <div className="bg-negro text-white rounded-xl shadow-lg overflow-hidden">
-            {/* Summary (expandible) */}
             {cartOpen && (
               <div className="max-h-52 overflow-y-auto border-b border-white/10">
-                {cart.map(i => (
-                  <div key={i.key} className="flex justify-between items-center px-4 py-2 text-sm border-b border-white/5 last:border-0">
-                    <span className="truncate flex-1 text-white/80 text-[0.78rem]">
-                      {i.qty}× {i.name}
-                      {i.presentacion !== 'unidad' && <span className="text-white/50 ml-1">({i.presentacion})</span>}
-                    </span>
-                    <span className="font-bold shrink-0 ml-2">{formatPrice(i.price * i.qty)}</span>
-                  </div>
-                ))}
+                {cart.map(i => {
+                  const effPrice = getItemEffectivePrice(i)
+                  return (
+                    <div key={i.key} className="flex justify-between items-center px-4 py-2 text-sm border-b border-white/5 last:border-0">
+                      <span className="truncate flex-1 text-white/80 text-[0.78rem]">
+                        {i.qty}× {i.name}
+                        {i.presentacion !== 'unidad' && (
+                          <span className="text-white/50 ml-1">({i.presentacion})</span>
+                        )}
+                        {i.promoBadgeLabel && (
+                          <span className="text-amarillo ml-1 text-[0.6rem] font-bold">· {i.promoBadgeLabel}</span>
+                        )}
+                      </span>
+                      <span className="font-bold shrink-0 ml-2">{formatPrice(effPrice * i.qty)}</span>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
-            {/* Footer */}
             <div className="flex items-center gap-3 px-4 py-3">
               <button onClick={() => setCartOpen(o => !o)} className="text-white/60 hover:text-white transition-colors">
                 {cartOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
@@ -477,26 +663,30 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PASO 3 — Confirmar pedido
+// PASO 3 — Confirmar pedido (con edición inline)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
-  const [notes, setNotes]       = useState('')
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
+  const [notes, setNotes]   = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
   const total = calcTotal(cart)
 
-  function formatPrice(n) {
-    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+  function editQty(key, newQty) {
+    if (newQty <= 0) {
+      setCart(prev => prev.filter(i => i.key !== key))
+    } else {
+      setCart(prev => prev.map(i => i.key === key ? { ...i, qty: newQty } : i))
+    }
   }
 
   async function handleConfirm() {
+    if (cart.length === 0) return
     setSaving(true); setError('')
     try {
-      // Número de referencia
       const refNum = `PP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
 
-      // Crear prepedido
       const { data: pedido, error: pErr } = await supabase
         .from('prepedidos')
         .insert({
@@ -513,21 +703,23 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
 
       if (pErr) throw pErr
 
-      // Crear items
       const { error: iErr } = await supabase.from('items_prepedido').insert(
-        cart.map(i => ({
-          prepedido_id:    pedido.id,
-          producto_id:     i.productId,
-          variante_id:     null,
-          cantidad:        i.qty,
-          precio_unitario: i.price,
-          subtotal:        i.price * i.qty,
-          presentacion:    i.presentacion,
-        }))
+        cart.map(i => {
+          const effPrice = getItemEffectivePrice(i)
+          return {
+            prepedido_id:    pedido.id,
+            producto_id:     i.productId,
+            variante_id:     null,
+            cantidad:        i.qty,
+            precio_unitario: effPrice,
+            subtotal:        effPrice * i.qty,
+            presentacion:    i.presentacion,
+          }
+        })
       )
       if (iErr) throw iErr
 
-      // Notificar al admin por WhatsApp (no bloquea)
+      // Notificar al admin (no bloquea)
       notifyAdmin({ refNum, total, clienteNombre: cliente.nombre_negocio, vendedorNombre: vendedor.nombre, cart }).catch(() => {})
 
       onSuccess(refNum)
@@ -546,9 +738,10 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
     try { destinos = JSON.parse(cfgData.valor) } catch { return }
     if (!destinos?.length) return
 
-    const lineas = cart.slice(0, 10).map(i =>
-      `• ${i.qty}x ${i.name}${i.presentacion !== 'unidad' ? ` (${i.presentacion})` : ''} → ${formatPrice(i.price * i.qty)}`
-    )
+    const lineas = cart.slice(0, 10).map(i => {
+      const effPrice = getItemEffectivePrice(i)
+      return `• ${i.qty}x ${i.name}${i.presentacion !== 'unidad' ? ` (${i.presentacion})` : ''} → ${formatPrice(effPrice * i.qty)}`
+    })
     if (cart.length > 10) lineas.push(`... y ${cart.length - 10} producto(s) más`)
 
     const mensaje =
@@ -557,6 +750,26 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
       `💰 Total: ${formatPrice(total)}\n\n🛒 *Detalle:*\n${lineas.join('\n')}`
 
     await supabase.functions.invoke('notify-pedido', { body: { destinos, mensaje } })
+  }
+
+  // Carrito vacío (el vendedor eliminó todos los items)
+  if (cart.length === 0) {
+    return (
+      <div className="px-4 pt-4 pb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={onBack} className="text-muted-foreground"><ArrowLeft size={18} /></button>
+          <h2 className="font-display text-xl font-bold text-negro">Confirmar pedido</h2>
+        </div>
+        <div className="text-center py-16">
+          <p className="font-bold text-negro mb-1">El carrito quedó vacío</p>
+          <p className="text-sm text-muted-foreground mb-6">Volvé al catálogo para agregar productos.</p>
+          <button onClick={onBack}
+            className="bg-negro text-white font-bold px-5 py-2.5 rounded-xl hover:bg-negro/90 transition-colors">
+            Volver al catálogo
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -571,22 +784,58 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
         <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Cliente</p>
         <p className="font-extrabold text-negro">{cliente.nombre_negocio}</p>
         {cliente.direccion && <p className="text-[0.78rem] text-muted-foreground">{cliente.direccion}</p>}
+        <p className="text-[0.68rem] text-muted-foreground capitalize mt-0.5">Lista: {cliente.lista_precios}</p>
       </div>
 
-      {/* Items */}
+      {/* Items con edición */}
       <div className="bg-white rounded-xl shadow-card overflow-hidden mb-3">
-        {cart.map(i => (
-          <div key={i.key} className="flex justify-between items-center px-4 py-2.5 border-b border-cream-dark last:border-b-0">
-            <div className="flex-1 min-w-0">
-              <span className="font-semibold text-sm text-negro">{i.name}</span>
-              {i.presentacion !== 'unidad' && (
-                <span className="ml-1.5 text-[0.65rem] font-bold text-muted-foreground uppercase">{i.presentacion}</span>
-              )}
-              <div className="text-[0.72rem] text-muted-foreground">{i.qty} × {formatPrice(i.price)}</div>
+        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-foreground px-4 pt-3 pb-1">
+          Productos · tocá para editar cantidades
+        </p>
+        {cart.map(i => {
+          const effPrice = getItemEffectivePrice(i)
+          return (
+            <div key={i.key} className="flex items-center gap-3 px-4 py-2.5 border-t border-cream-dark">
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-negro leading-snug">{i.name}</div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {i.presentacion !== 'unidad' && (
+                    <span className="text-[0.62rem] font-bold text-muted-foreground uppercase">{i.presentacion}</span>
+                  )}
+                  {i.promoBadgeLabel && (
+                    <span className="text-[0.58rem] font-extrabold uppercase bg-orange-100 text-orange-700 px-1 py-0.5 rounded-full border border-orange-200">
+                      {i.promoBadgeLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[0.7rem] text-muted-foreground">{formatPrice(effPrice)} c/u</div>
+              </div>
+
+              {/* Controles de cantidad */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => editQty(i.key, i.qty - 1)}
+                  className="w-6 h-6 rounded-full bg-cream-dark flex items-center justify-center text-negro hover:bg-red-100 hover:text-red-600 transition-colors"
+                >
+                  <Minus size={10} />
+                </button>
+                <span className="font-extrabold text-sm min-w-[22px] text-center">{i.qty}</span>
+                <button
+                  onClick={() => editQty(i.key, i.qty + 1)}
+                  className="w-6 h-6 rounded-full bg-cream-dark flex items-center justify-center text-negro hover:bg-negro hover:text-white transition-colors"
+                >
+                  <Plus size={10} />
+                </button>
+              </div>
+
+              {/* Subtotal */}
+              <span className="font-bold text-sm text-negro shrink-0 min-w-[70px] text-right">
+                {formatPrice(effPrice * i.qty)}
+              </span>
             </div>
-            <span className="font-bold text-negro shrink-0">{formatPrice(i.price * i.qty)}</span>
-          </div>
-        ))}
+          )
+        })}
         <div className="flex justify-between items-center px-4 py-3 bg-negro">
           <span className="text-[0.72rem] font-bold uppercase tracking-wider text-white/70">Total</span>
           <span className="font-display font-extrabold text-[1.2rem] text-amarillo">{formatPrice(total)}</span>
@@ -614,7 +863,7 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
         disabled={saving}
         className="w-full py-3.5 bg-amarillo text-negro font-extrabold text-base rounded-xl hover:bg-amarillo/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
       >
-        {saving ? <><Loader2 size={16} className="animate-spin" />Enviando...</> : '✓ Confirmar pedido'}
+        {saving ? <><Loader2 size={16} className="animate-spin" />Enviando...</> : 'Confirmar pedido'}
       </button>
 
       <p className="text-center text-[0.72rem] text-muted-foreground mt-2">
@@ -625,15 +874,15 @@ function Step3({ cliente, cart, vendedor, onBack, onSuccess }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Página principal — máquina de estados de 3 pasos
+// Página principal — máquina de 3 pasos
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function NuevoPedido() {
   const { vendedor } = useVendedor()
-  const [step, setStep]               = useState(1)
-  const [cliente, setCliente]         = useState(null)
-  const [cart, setCart]               = useState([])
-  const [successRef, setSuccessRef]   = useState(null)
+  const [step, setStep]             = useState(1)
+  const [cliente, setCliente]       = useState(null)
+  const [cart, setCart]             = useState([])
+  const [successRef, setSuccessRef] = useState(null)
 
   function handleSelectCliente(c) { setCliente(c); setCart([]); setStep(2) }
   function handleBackToStep1()    { setStep(1) }
@@ -641,16 +890,16 @@ export default function NuevoPedido() {
   function handleBackToStep2()    { setStep(2) }
   function handleSuccess(refNum)  { setSuccessRef(refNum); setStep(4) }
 
-  function reset() {
-    setStep(1); setCliente(null); setCart([]); setSuccessRef(null)
-  }
+  function reset() { setStep(1); setCliente(null); setCart([]); setSuccessRef(null) }
 
-  // ── Éxito ──────────────────────────────────────────────────────────────────
+  // ── Pantalla de éxito ──────────────────────────────────────────────────────
   if (step === 4) {
     return (
       <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="text-5xl mb-4">🎉</div>
-        <h2 className="font-display text-2xl font-bold text-negro mb-2">¡Pedido confirmado!</h2>
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-5">
+          <CheckCircle size={36} className="text-green-600" strokeWidth={1.5} />
+        </div>
+        <h2 className="font-display text-2xl font-bold text-negro mb-2">Pedido confirmado</h2>
         <p className="text-sm text-muted-foreground mb-1">{successRef}</p>
         <p className="text-sm text-muted-foreground mb-8">El pedido fue registrado como "Revisado".</p>
         <button
@@ -664,6 +913,7 @@ export default function NuevoPedido() {
   }
 
   if (step === 1) return <Step1 onSelect={handleSelectCliente} />
+
   if (step === 2) return (
     <Step2
       cliente={cliente}
@@ -673,14 +923,17 @@ export default function NuevoPedido() {
       onNext={handleToStep3}
     />
   )
+
   if (step === 3) return (
     <Step3
       cliente={cliente}
       cart={cart}
+      setCart={setCart}
       vendedor={vendedor}
       onBack={handleBackToStep2}
       onSuccess={handleSuccess}
     />
   )
+
   return null
 }
