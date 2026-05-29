@@ -81,19 +81,32 @@ function calcAddQty(promo) {
   return 1
 }
 
-// Precio efectivo de un item (tiene en cuenta cantidad_minima dinámicamente)
-function getItemEffectivePrice(item) {
-  if (item.promoType === 'cantidad_minima' && item.promoQtyMin && item.promoDesc != null) {
-    return item.qty >= item.promoQtyMin
-      ? item.basePrice * (1 - item.promoDesc / 100)
-      : item.basePrice
+// Subtotal real de un item respetando:
+//   nxm          → grupos completos al precio promo + resto al precio normal
+//   cantidad_minima → descuento solo si qty >= umbral
+//   otros          → precio efectivo fijo × qty
+function calcItemSubtotal(item) {
+  const { qty, basePrice, price, promoType, promoN, promoM, promoQtyMin, promoDesc } = item
+
+  if (promoType === 'nxm' && promoN && promoM) {
+    const groups    = Math.floor(qty / promoN)
+    const remainder = qty % promoN
+    return groups * promoM * basePrice + remainder * basePrice
   }
-  return item.price
+
+  if (promoType === 'cantidad_minima' && promoQtyMin && promoDesc != null) {
+    const effPrice = qty >= promoQtyMin
+      ? basePrice * (1 - promoDesc / 100)
+      : basePrice
+    return effPrice * qty
+  }
+
+  return price * qty
 }
 
-// Total del carrito (respeta cantidad_minima dinámicamente)
+// Total del carrito
 function calcTotal(cart) {
-  return cart.reduce((sum, item) => sum + getItemEffectivePrice(item) * item.qty, 0)
+  return cart.reduce((sum, item) => sum + calcItemSubtotal(item), 0)
 }
 
 // ── Cache del catálogo (1 hora) ───────────────────────────────────────────────
@@ -388,12 +401,18 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
     const promo = getBestPromo(product.id, presentacion)
 
     let price = basePrice
-    let promoType = null, promoQtyMin = null, promoDesc = null, promoBadgeLabel = null
+    let promoType = null, promoN = null, promoM = null
+    let promoQtyMin = null, promoDesc = null, promoBadgeLabel = null
 
     if (promo) {
       promoType = promo.tipo_promo
       promoBadgeLabel = promoBadge(promo)
-      if (promo.tipo_promo !== 'cantidad_minima') {
+      if (promo.tipo_promo === 'nxm') {
+        // Para nxm guardamos N y M; el subtotal se calcula dinámicamente en calcItemSubtotal
+        promoN = promo.promo_n
+        promoM = promo.promo_m
+        // price queda igual a basePrice; el descuento emerge del cálculo por grupos
+      } else if (promo.tipo_promo !== 'cantidad_minima') {
         price = calcEffectivePrice(promo, basePrice)
       } else {
         promoQtyMin = promo.qty_minima
@@ -407,7 +426,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
       return [...prev, {
         key, productId: product.id, name: product.nombre, code: product.codigo_interno,
         presentacion, basePrice, price, qty: newQty,
-        promoType, promoQtyMin, promoDesc, promoBadgeLabel,
+        promoType, promoN, promoM, promoQtyMin, promoDesc, promoBadgeLabel,
       }]
     })
   }
@@ -632,23 +651,20 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
           <div className="bg-negro text-white rounded-xl shadow-lg overflow-hidden">
             {cartOpen && (
               <div className="max-h-52 overflow-y-auto border-b border-white/10">
-                {cart.map(i => {
-                  const effPrice = getItemEffectivePrice(i)
-                  return (
-                    <div key={i.key} className="flex justify-between items-center px-4 py-2 text-sm border-b border-white/5 last:border-0">
-                      <span className="truncate flex-1 text-white/80 text-[0.78rem]">
-                        {i.qty}× {i.name}
-                        {i.presentacion !== 'unidad' && (
-                          <span className="text-white/50 ml-1">({i.presentacion})</span>
-                        )}
-                        {i.promoBadgeLabel && (
-                          <span className="text-amarillo ml-1 text-[0.6rem] font-bold">· {i.promoBadgeLabel}</span>
-                        )}
-                      </span>
-                      <span className="font-bold shrink-0 ml-2">{formatPrice(effPrice * i.qty)}</span>
-                    </div>
-                  )
-                })}
+                {cart.map(i => (
+                  <div key={i.key} className="flex justify-between items-center px-4 py-2 text-sm border-b border-white/5 last:border-0">
+                    <span className="truncate flex-1 text-white/80 text-[0.78rem]">
+                      {i.qty}× {i.name}
+                      {i.presentacion !== 'unidad' && (
+                        <span className="text-white/50 ml-1">({i.presentacion})</span>
+                      )}
+                      {i.promoBadgeLabel && (
+                        <span className="text-amarillo ml-1 text-[0.6rem] font-bold">· {i.promoBadgeLabel}</span>
+                      )}
+                    </span>
+                    <span className="font-bold shrink-0 ml-2">{formatPrice(calcItemSubtotal(i))}</span>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -719,14 +735,14 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
 
       const { error: iErr } = await supabase.from('items_prepedido').insert(
         cart.map(i => {
-          const effPrice = getItemEffectivePrice(i)
+          const subtotal = calcItemSubtotal(i)
           return {
             prepedido_id:    pedido.id,
             producto_id:     i.productId,
             variante_id:     null,
             cantidad:        i.qty,
-            precio_unitario: effPrice,
-            subtotal:        effPrice * i.qty,
+            precio_unitario: subtotal / i.qty,   // precio promedio efectivo
+            subtotal,
             presentacion:    i.presentacion,
           }
         })
@@ -752,10 +768,9 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
     try { destinos = JSON.parse(cfgData.valor) } catch { return }
     if (!destinos?.length) return
 
-    const lineas = cart.slice(0, 10).map(i => {
-      const effPrice = getItemEffectivePrice(i)
-      return `• ${i.qty}x ${i.name}${i.presentacion !== 'unidad' ? ` (${i.presentacion})` : ''} → ${formatPrice(effPrice * i.qty)}`
-    })
+    const lineas = cart.slice(0, 10).map(i =>
+      `• ${i.qty}x ${i.name}${i.presentacion !== 'unidad' ? ` (${i.presentacion})` : ''} → ${formatPrice(calcItemSubtotal(i))}`
+    )
     if (cart.length > 10) lineas.push(`... y ${cart.length - 10} producto(s) más`)
 
     const mensaje =
@@ -807,7 +822,11 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
           Productos · tocá para editar cantidades
         </p>
         {cart.map(i => {
-          const effPrice = getItemEffectivePrice(i)
+          const subtotal = calcItemSubtotal(i)
+          // Para nxm mostramos el badge en lugar de "X c/u" porque el precio unitario varía
+          const unitInfo = i.promoType === 'nxm'
+            ? i.promoBadgeLabel
+            : `${formatPrice(subtotal / i.qty)} c/u`
           return (
             <div key={i.key} className="flex items-center gap-3 px-4 py-2.5 border-t border-cream-dark">
               {/* Info */}
@@ -817,13 +836,13 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
                   {i.presentacion !== 'unidad' && (
                     <span className="text-[0.62rem] font-bold text-muted-foreground uppercase">{i.presentacion}</span>
                   )}
-                  {i.promoBadgeLabel && (
+                  {i.promoType !== 'nxm' && i.promoBadgeLabel && (
                     <span className="text-[0.58rem] font-extrabold uppercase bg-orange-100 text-orange-700 px-1 py-0.5 rounded-full border border-orange-200">
                       {i.promoBadgeLabel}
                     </span>
                   )}
                 </div>
-                <div className="text-[0.7rem] text-muted-foreground">{formatPrice(effPrice)} c/u</div>
+                <div className="text-[0.7rem] text-muted-foreground">{unitInfo}</div>
               </div>
 
               {/* Controles de cantidad */}
@@ -845,7 +864,7 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
 
               {/* Subtotal */}
               <span className="font-bold text-sm text-negro shrink-0 min-w-[70px] text-right">
-                {formatPrice(effPrice * i.qty)}
+                {formatPrice(subtotal)}
               </span>
             </div>
           )
