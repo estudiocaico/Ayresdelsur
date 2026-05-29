@@ -435,15 +435,22 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
     return cart.find(i => i.key === `${productId}-${presentacion}`)?.qty ?? 0
   }
 
-  // ── Filtros ────────────────────────────────────────────────────────────────
-  const visibleProducts = (catalog?.productos ?? []).filter(p => {
-    if (catFilter && p.categoria_id !== catFilter) return false
-    if (textFilter) {
-      const q = textFilter.toLowerCase()
-      if (!p.nombre.toLowerCase().includes(q) && !p.codigo_interno?.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
+  // ── Filtros + orden (productos con promo primero) ─────────────────────────
+  const visibleProducts = (catalog?.productos ?? [])
+    .filter(p => {
+      if (catFilter && p.categoria_id !== catFilter) return false
+      if (textFilter) {
+        const q = textFilter.toLowerCase()
+        if (!p.nombre.toLowerCase().includes(q) && !p.codigo_interno?.toLowerCase().includes(q)) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      const aP = !!(promoMap[a.id]?.length)
+      const bP = !!(promoMap[b.id]?.length)
+      if (aP === bP) return 0
+      return aP ? -1 : 1
+    })
 
   const totalItems = cart.reduce((s, i) => s + i.qty, 0)
   const totalPrice = calcTotal(cart)
@@ -572,20 +579,54 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                     const addQtyStep = promo ? calcAddQty(promo) : 1
                     const qty        = getQty(p.id, pr)
 
-                    const presLabel  = pr === 'pack'
+                    const presLabel = pr === 'pack'
                       ? `Pack ×${p.unidades_pack ?? '?'}`
                       : pr === 'pallet'
                       ? `Pallet ×${p.unidades_pallet ?? '?'}`
                       : (p.unidad ?? 'Unidad')
 
+                    // Descripción legible de la promo
+                    const promoDesc = promo ? (() => {
+                      switch (promo.tipo_promo) {
+                        case 'nxm':                  return `Llevás ${promo.promo_n}, pagás ${promo.promo_m}`
+                        case 'descuento_porcentual': return `${promo.descuento_porcentaje}% de descuento`
+                        case 'precio_especial':      return 'Precio especial'
+                        case 'cantidad_minima':      return `Llevando +${promo.qty_minima} u. → ${promo.descuento_porcentaje}% OFF`
+                        default:                     return null
+                      }
+                    })() : null
+
+                    // Hint dinámico según qty actual
+                    let promoHint = null, hintActive = false
+                    if (qty > 0 && promo) {
+                      if (promo.tipo_promo === 'nxm' && promo.promo_n) {
+                        const rem = qty % promo.promo_n
+                        if (rem === 0) {
+                          const g = qty / promo.promo_n
+                          promoHint = `${g} grupo${g > 1 ? 's' : ''} completo${g > 1 ? 's' : ''} · promo activa`
+                          hintActive = true
+                        } else {
+                          promoHint = `Faltan ${promo.promo_n - rem} para completar el grupo`
+                        }
+                      } else if (promo.tipo_promo === 'cantidad_minima' && promo.qty_minima) {
+                        if (qty >= promo.qty_minima) {
+                          promoHint = `Descuento activo · ${promo.descuento_porcentaje}% OFF`
+                          hintActive = true
+                        } else {
+                          promoHint = `Faltan ${promo.qty_minima - qty} para el ${promo.descuento_porcentaje}% OFF`
+                        }
+                      }
+                    }
+
                     return (
                       <div
                         key={pr}
-                        className={`flex items-center justify-between gap-2 px-3.5 py-2.5 ${
+                        className={`flex items-start justify-between gap-2 px-3.5 py-2.5 ${
                           idx > 0 ? 'border-t border-cream-dark' : ''
                         }`}
                       >
                         <div className="min-w-0 flex-1">
+                          {/* Presentación + badge */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[0.72rem] font-bold text-muted-foreground uppercase">
                               {presLabel}
@@ -596,6 +637,13 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                               </span>
                             )}
                           </div>
+
+                          {/* Descripción completa de la promo */}
+                          {promoDesc && (
+                            <p className="text-[0.68rem] text-muted-foreground mt-0.5">{promoDesc}</p>
+                          )}
+
+                          {/* Precio */}
                           <div className="flex items-baseline gap-1.5 mt-0.5">
                             {hasDisc && (
                               <span className="text-[0.68rem] text-muted-foreground line-through">
@@ -605,16 +653,25 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                             <span className="font-bold text-[0.9rem] text-negro">
                               {formatPrice(effPrice)}
                             </span>
-                            {promo?.tipo_promo === 'cantidad_minima' && (
-                              <span className="text-[0.62rem] text-muted-foreground">
-                                (sin promo)
-                              </span>
+                            {promo?.tipo_promo === 'cantidad_minima' && qty < (promo.qty_minima ?? 0) && (
+                              <span className="text-[0.62rem] text-muted-foreground">(sin promo)</span>
                             )}
                           </div>
+
+                          {/* Pill: faltan X / promo activa */}
+                          {promoHint && (
+                            <span className={`mt-1 inline-block text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border ${
+                              hintActive
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {promoHint}
+                            </span>
+                          )}
                         </div>
 
                         {/* Controles */}
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                           <button
                             onClick={() => setQty(p, pr, qty - 1)}
                             className="w-7 h-7 rounded-full bg-cream-dark flex items-center justify-center text-negro hover:bg-negro hover:text-white transition-colors"
@@ -802,7 +859,8 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
   }
 
   return (
-    <div className="px-4 pt-4 pb-6 max-w-[520px] mx-auto">
+    <>
+    <div className="px-4 pt-4 pb-36 max-w-[520px] mx-auto">
       <div className="flex items-center gap-2 mb-4">
         <button onClick={onBack} className="text-muted-foreground"><ArrowLeft size={18} /></button>
         <h2 className="font-display text-xl font-bold text-negro">Confirmar pedido</h2>
@@ -890,19 +948,27 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
       </div>
 
       {error && <p className="text-[0.78rem] text-red-600 font-semibold mb-3">{error}</p>}
-
-      <button
-        onClick={handleConfirm}
-        disabled={saving}
-        className="w-full py-3.5 bg-amarillo text-negro font-extrabold text-base rounded-xl hover:bg-amarillo/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        {saving ? <><Loader2 size={16} className="animate-spin" />Enviando...</> : 'Confirmar pedido'}
-      </button>
-
-      <p className="text-center text-[0.72rem] text-muted-foreground mt-2">
-        El pedido queda en estado "Revisado" con tu firma de visita.
-      </p>
     </div>
+
+    {/* ── Barra fija: total siempre visible + confirmar ──────────────────── */}
+    <div className="fixed bottom-[60px] left-0 right-0 z-40 px-4 pb-2">
+      <div className="bg-negro text-white rounded-xl shadow-panel-lg flex items-center gap-3 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[0.58rem] text-white/55 uppercase tracking-wider leading-none mb-0.5">Total estimado</p>
+          <p className="font-display font-extrabold text-amarillo text-[1.25rem] leading-tight">
+            {formatPrice(total)}
+          </p>
+        </div>
+        <button
+          onClick={handleConfirm}
+          disabled={saving}
+          className="bg-amarillo text-negro font-extrabold text-sm px-5 py-2.5 rounded-lg hover:bg-amarillo/90 transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0"
+        >
+          {saving ? <><Loader2 size={14} className="animate-spin" />Enviando...</> : 'Confirmar pedido'}
+        </button>
+      </div>
+    </div>
+    </>
   )
 }
 
