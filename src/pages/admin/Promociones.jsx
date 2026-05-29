@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import AdminLayout from '../../components/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -108,6 +109,7 @@ export default function Promociones() {
   const selectedProduct = products.find(p => p.id === form.producto_id)
 
   return (
+    <AdminLayout>
     <div className="max-w-3xl mx-auto">
 
       {/* Header */}
@@ -342,5 +344,6 @@ export default function Promociones() {
         </div>
       )}
     </div>
+    </AdminLayout>
   )
 }
