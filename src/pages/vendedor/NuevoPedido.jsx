@@ -477,7 +477,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
       </div>
 
       {/* ── Lista de productos (acordeón) ──────────────────────────────────── */}
-      <div className="px-4 pt-3 pb-32 space-y-1">
+      <div className="px-4 pt-3 pb-32 space-y-2.5">
         {visibleProducts.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-8">Sin productos.</p>
         )}
