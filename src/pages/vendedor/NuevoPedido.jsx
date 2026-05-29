@@ -686,7 +686,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                             className="w-10 text-center font-extrabold text-base bg-transparent focus:outline-none"
                           />
                           <button
-                            onClick={() => setQty(p, pr, qty === 0 ? addQtyStep : qty + addQtyStep)}
+                            onClick={() => setQty(p, pr, qty === 0 ? addQtyStep : qty + 1)}
                             className="w-7 h-7 rounded-full bg-negro flex items-center justify-center text-white hover:bg-negro/80 transition-colors"
                           >
                             <Plus size={12} />
