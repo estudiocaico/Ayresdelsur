@@ -175,7 +175,16 @@ export default function MyOrders() {
                               <div className="text-[0.73rem] text-muted-foreground mt-0.5">{item.variantes_producto.valor}</div>
                             )}
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                            {item.presentacion && item.presentacion !== 'unidad' && (
+                              <span className={`inline-flex items-center gap-0.5 text-[0.58rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                item.presentacion === 'pack'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                  : 'bg-green-100 text-green-700 border-green-200'
+                              }`}>
+                                {item.presentacion === 'pack' ? '📦 Pack' : '🎁 Pallet'}
+                              </span>
+                            )}
                             <div className="text-muted-foreground text-xs">
                               {item.cantidad} {item.presentacion && item.presentacion !== 'unidad'
                                 ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1)

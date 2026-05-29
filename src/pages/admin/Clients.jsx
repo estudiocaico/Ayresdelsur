@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, UserPlus, Pencil, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Loader2, UserPlus, Pencil, ToggleLeft, ToggleRight, Search } from 'lucide-react'
 
 const EMPTY_NEW = {
   nombre_negocio: '', razon_social: '', cuit: '',
@@ -24,6 +24,7 @@ export default function AdminClients() {
   const [error, setError]       = useState('')
   const [success, setSuccess]   = useState('')
   const [editing, setEditing]   = useState(null)
+  const [search, setSearch]     = useState('')
 
   useEffect(() => { loadClients() }, [])
 
@@ -222,7 +223,19 @@ export default function AdminClients() {
           <Loader2 className="w-7 h-7 animate-spin text-amarillo" />
         </div>
       ) : (
-        <Card className="shadow-panel overflow-hidden">
+        <>
+          {/* Search */}
+          <div className="relative mb-4 max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              className="pl-8 h-9 text-sm"
+              placeholder="Buscar por nombre, email o CUIT…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          <Card className="shadow-panel overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-negro hover:bg-negro">
@@ -232,12 +245,19 @@ export default function AdminClients() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No hay clientes aún.</TableCell>
-                </TableRow>
-              )}
-              {clients.map(c => (
+              {(() => {
+                const q = search.toLowerCase()
+                const filtered = search
+                  ? clients.filter(c => [c.nombre_negocio, c.email, c.cuit, c.razon_social].some(f => f?.toLowerCase().includes(q)))
+                  : clients
+                if (filtered.length === 0) return (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      {search ? 'Sin resultados para esa búsqueda.' : 'No hay clientes aún.'}
+                    </TableCell>
+                  </TableRow>
+                )
+                return filtered.map(c => (
                 <TableRow key={c.id} className="hover:bg-cream">
                   <TableCell>
                     <div className="font-semibold text-sm">{c.nombre_negocio}</div>
@@ -265,10 +285,12 @@ export default function AdminClients() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))}
+              })()}
             </TableBody>
           </Table>
         </Card>
+        </>
       )}
     </AdminLayout>
   )

@@ -140,11 +140,11 @@ export function CartProvider({ children }) {
       {toast && (
         <div
           key={toast.id}
-          className={`fixed bottom-8 left-1/2 z-[300] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-negro text-white text-sm font-semibold shadow-lg whitespace-nowrap ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          className={`fixed bottom-8 left-1/2 z-[300] flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-negro text-white text-sm font-semibold shadow-lg max-w-[calc(100vw-2rem)] ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
           role="status"
           aria-live="polite"
         >
-          🛒 <span>{toast.message} en tu carrito</span>
+          🛒 <span className="truncate">{toast.message} en tu carrito</span>
         </div>
       )}
     </CartContext.Provider>

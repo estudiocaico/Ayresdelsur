@@ -415,10 +415,15 @@ export default function AdminProducts() {
                           {p.imagen_url ? '↻ Img' : '+ Img'}
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => toggleActive(p)} className="h-7 px-2 text-xs gap-1">
-                        {p.activo ? <ToggleLeft size={13} /> : <ToggleRight size={13} />}
-                        {p.activo ? 'Desactivar' : 'Activar'}
-                      </Button>
+                      <button
+                        onClick={() => toggleActive(p)}
+                        title={p.activo ? 'Desactivar' : 'Activar'}
+                        className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-cream-dark transition-colors"
+                      >
+                        {p.activo
+                          ? <ToggleRight size={20} className="text-green-600" />
+                          : <ToggleLeft  size={20} className="text-gray-400"  />}
+                      </button>
                     </div>
                   </TableCell>
                 </TableRow>

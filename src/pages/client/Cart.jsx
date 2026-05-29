@@ -151,6 +151,15 @@ export default function Cart() {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm leading-snug">{item.name}</div>
                     {item.variantLabel && <div className="text-[0.75rem] text-muted-foreground mt-0.5">{item.variantLabel}</div>}
+                    {item.presentacion && item.presentacion !== 'unidad' && (
+                      <span className={`inline-flex items-center gap-1 text-[0.62rem] font-extrabold uppercase px-2 py-0.5 rounded-full mt-1 border ${
+                        item.presentacion === 'pack'
+                          ? 'bg-amber-100 text-amber-700 border-amber-200'
+                          : 'bg-green-100 text-green-700 border-green-200'
+                      }`}>
+                        {item.presentacion === 'pack' ? '📦 Pack' : '🎁 Pallet'}
+                      </span>
+                    )}
 
                     {/* NxM breakdown */}
                     {item.promoN && item.promoM ? (() => {
