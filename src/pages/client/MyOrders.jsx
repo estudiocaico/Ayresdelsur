@@ -6,7 +6,7 @@ import { useCart } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, ChevronDown, RefreshCw, Loader2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, RefreshCw, Loader2, Package, Layers } from 'lucide-react'
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -182,7 +182,9 @@ export default function MyOrders() {
                                   ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
                                   : 'bg-green-100 text-green-800 border-green-200'
                               }`}>
-                                {item.presentacion === 'pack' ? '📦 Pack' : '🎁 Pallet'}
+                                {item.presentacion === 'pack'
+                                  ? <><Package size={10} className="inline mr-0.5" />Pack</>
+                                  : <><Layers   size={10} className="inline mr-0.5" />Pallet</>}
                               </span>
                             )}
                             <div className="text-muted-foreground text-xs">

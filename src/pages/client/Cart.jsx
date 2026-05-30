@@ -6,7 +6,7 @@ import { useCart, calcItemTotal } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Loader2, Minus, Plus, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Minus, Plus, X, Package, Layers } from 'lucide-react'
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -157,7 +157,9 @@ export default function Cart() {
                           ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
                           : 'bg-green-100 text-green-800 border-green-200'
                       }`}>
-                        {item.presentacion === 'pack' ? '📦 Pack' : '🎁 Pallet'}
+                        {item.presentacion === 'pack'
+                          ? <><Package size={10} className="inline mr-0.5" />Pack</>
+                          : <><Layers   size={10} className="inline mr-0.5" />Pallet</>}
                       </span>
                     )}
 
