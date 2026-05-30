@@ -583,7 +583,6 @@ export default function Catalog() {
         favSet = new Set(favs?.map(f => f.producto_id) ?? [])
       }
       setFavoritos(favSet)
-      if (favSet.size > 0) setActiveCategory('Mis favoritos')
 
       // Step 2: load promos separately (two-step to avoid FK-join cache issues)
       const { data: promoRows } = await supabase
