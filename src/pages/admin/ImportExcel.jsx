@@ -15,6 +15,7 @@ import { Loader2, Upload, FileSpreadsheet } from 'lucide-react'
 // K(10) Precio pack min.  L(11) med.  M(12) may.  N(13) Uds/pack
 // O(14) Precio pallet min.  P(15) med.  Q(16) may.  R(17) Uds/pallet
 // S(18) Variantes (sep. |)  T(19) Activo (SI/NO)
+// U(20) Stock cantidad (opcional)  V(21) Umbral stock bajo (opcional)
 
 const COLUMNS = [
   'A: Código interno','B: EAN','C: Nombre','D: Descripción','E: Categoría','F: Subcategoría',
@@ -22,11 +23,12 @@ const COLUMNS = [
   'K: Precio pack min.','L: Precio pack med.','M: Precio pack may.','N: Uds/pack',
   'O: Precio pallet min.','P: Precio pallet med.','Q: Precio pallet may.','R: Uds/pallet',
   'S: Variantes (sep. |)','T: Activo (SI/NO)',
+  'U: Stock cantidad (opcional)','V: Umbral stock bajo (opcional)',
 ]
 const EXAMPLE = [
   'PROD-001','7790040012345','Aceite Girasol','900ml','Almacén','',
   '1050','980','900','unidad','950','880','810','25','800','740','680','180',
-  'Girasol | Maíz','SI',
+  'Girasol | Maíz','SI','50','5',
 ]
 
 function parsePrice(val) {
@@ -78,20 +80,27 @@ export default function AdminImport() {
         const ws   = wb.Sheets[wb.SheetNames[0]]
         const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
         if (data.length > 10001) { setError('El archivo tiene demasiadas filas. Máximo 10.000 productos por importación.'); return }
-        const parseInt0 = v => { const n = parseInt(v); return isNaN(n) || n <= 0 ? null : n }
-        const parsed = data.slice(1).filter(r => r.some(c => c !== '')).map((r, idx) => ({
-          _row: idx + 2,
-          codigo_interno: cap(r[0], 50), ean: cap(r[1], 30), nombre: cap(r[2], 200),
-          descripcion: cap(r[3], 500), categoria: cap(r[4], 100),
-          precio: parsePrice(r[6]), precio_mediano: parsePrice(r[7]), precio_mayorista: parsePrice(r[8]),
-          unidad: cap(r[9] || 'unidad', 30).toLowerCase(),
-          precio_pack: parsePrice(r[10]), precio_pack_mediano: parsePrice(r[11]), precio_pack_mayorista: parsePrice(r[12]),
-          unidades_pack: parseInt0(r[13]),
-          precio_pallet: parsePrice(r[14]), precio_pallet_mediano: parsePrice(r[15]), precio_pallet_mayorista: parsePrice(r[16]),
-          unidades_pallet: parseInt0(r[17]),
-          variantes: cap(r[18], 300),
-          activo: String(r[19] ?? 'SI').trim().toUpperCase() !== 'NO',
-        }))
+        const parseInt0    = v => { const n = parseInt(v); return isNaN(n) || n <= 0 ? null : n }
+        const parseInt0Inc = v => { const n = parseInt(v); return isNaN(n) || n < 0  ? null : n } // incluye 0
+        const parsed = data.slice(1).filter(r => r.some(c => c !== '')).map((r, idx) => {
+          const stockCantidad = parseInt0Inc(r[20])
+          return {
+            _row: idx + 2,
+            codigo_interno: cap(r[0], 50), ean: cap(r[1], 30), nombre: cap(r[2], 200),
+            descripcion: cap(r[3], 500), categoria: cap(r[4], 100),
+            precio: parsePrice(r[6]), precio_mediano: parsePrice(r[7]), precio_mayorista: parsePrice(r[8]),
+            unidad: cap(r[9] || 'unidad', 30).toLowerCase(),
+            precio_pack: parsePrice(r[10]), precio_pack_mediano: parsePrice(r[11]), precio_pack_mayorista: parsePrice(r[12]),
+            unidades_pack: parseInt0(r[13]),
+            precio_pallet: parsePrice(r[14]), precio_pallet_mediano: parsePrice(r[15]), precio_pallet_mayorista: parsePrice(r[16]),
+            unidades_pallet: parseInt0(r[17]),
+            variantes: cap(r[18], 300),
+            activo: String(r[19] ?? 'SI').trim().toUpperCase() !== 'NO',
+            stock_cantidad:   stockCantidad,
+            stock_umbral_bajo: parseInt0Inc(r[21]),
+            stock_activo:     stockCantidad != null,  // activar si se proveyó stock_cantidad
+          }
+        })
         setRows(parsed); setPreview(true)
       } catch { setError('No se pudo leer el archivo. Verificá que sea un .xlsx válido.') }
     }
@@ -140,6 +149,12 @@ export default function AdminImport() {
           unidad: row.unidad || 'unidad', activo: row.activo,
           // Si la búsqueda encontró imagen: usar esa. Si no y el producto ya tenía una: mantenerla.
           imagen_url: imagen_url ?? (existing?.imagen_url ?? null),
+          // Stock — sólo se escribe si la columna U estaba presente en el Excel
+          ...(row.stock_activo ? {
+            stock_activo:     true,
+            stock_cantidad:   row.stock_cantidad,
+            stock_umbral_bajo: row.stock_umbral_bajo ?? 0,
+          } : {}),
         }
         let productId
         if (existing) { await supabase.from('productos').update(productData).eq('id', existing.id); productId = existing.id; updated++ }
@@ -190,7 +205,9 @@ export default function AdminImport() {
           </ScrollArea>
           <p className="text-[0.72rem] text-muted-foreground mt-3">
             Dejá las celdas de Pack/Pallet vacías si el producto no se vende en esa presentación.
-            Las columnas de precios mediano y mayorista también son opcionales.
+            Las columnas de precios mediano y mayorista también son opcionales.{' '}
+            <strong>Columnas U y V (stock) son opcionales:</strong> si U tiene valor, se activa el control de stock para ese producto;
+            si U = 0 el producto aparecerá como agotado. Si las columnas no están presentes se ignoran silenciosamente.
           </p>
         </CardContent>
       </Card>

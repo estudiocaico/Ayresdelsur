@@ -135,7 +135,9 @@ export default function EditarPedido() {
           precio, precio_mayorista, precio_mediano,
           precio_pack, precio_pack_mayorista, precio_pack_mediano,
           precio_pallet, precio_pallet_mayorista, precio_pallet_mediano,
-          unidades_pack, unidades_pallet, imagen_url, categorias(id, nombre)
+          unidades_pack, unidades_pallet, imagen_url,
+          stock_activo, stock_cantidad, stock_umbral_bajo,
+          categorias(id, nombre)
         `)
         .eq('activo', true).order('nombre'),
       supabase.from('promociones').select('*').eq('activo', true),
@@ -302,11 +304,12 @@ export default function EditarPedido() {
 
   const total = calcTotal(cart)
 
-  const visibleProducts = products.filter(p =>
-    !search ||
-    p.nombre.toLowerCase().includes(search.toLowerCase()) ||
-    (p.codigo_interno ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const visibleProducts = products.filter(p => {
+    if (p.stock_activo && p.stock_cantidad === 0) return false
+    if (!search) return true
+    return p.nombre.toLowerCase().includes(search.toLowerCase()) ||
+      (p.codigo_interno ?? '').toLowerCase().includes(search.toLowerCase())
+  })
 
   return (
     <>
@@ -406,6 +409,10 @@ export default function EditarPedido() {
             const catColor    = CATEGORY_COLORS[catName] ?? '#888888'
             const bestPromo   = getBestPromo(product.id, 'unidad')
             const hasInCart   = cart.some(i => i.productId === product.id)
+            const stockMax    = product.stock_activo && product.stock_cantidad != null ? product.stock_cantidad : null
+            const stockBajo   = product.stock_activo && product.stock_cantidad != null && product.stock_cantidad > 0
+              && product.stock_cantidad <= (product.stock_umbral_bajo ?? 0)
+            const totalCartQtyForProd = cart.filter(i => i.productId === product.id).reduce((s, i) => s + i.qty, 0)
 
             const presentations = [
               { pres: 'unidad',  label: 'Unidad' },
@@ -429,7 +436,18 @@ export default function EditarPedido() {
                     : <div className="w-9 h-9 rounded-lg shrink-0" style={{ background: `${catColor}25` }} />
                   }
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-negro leading-snug truncate">{product.nombre}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-semibold text-sm text-negro leading-snug truncate">{product.nombre}</p>
+                      {product.stock_activo && product.stock_cantidad != null && (
+                        <span className={`text-[0.58rem] font-bold px-1.5 py-0.5 rounded-full border ${
+                          stockBajo
+                            ? 'bg-orange-100 text-orange-700 border-orange-200'
+                            : 'bg-green-50 text-green-700 border-green-200'
+                        }`}>
+                          Stock: {product.stock_cantidad} u.
+                        </span>
+                      )}
+                    </div>
                     {product.codigo_interno && (
                       <p className="text-[0.7rem] text-muted-foreground">{product.codigo_interno}</p>
                     )}
@@ -491,16 +509,24 @@ export default function EditarPedido() {
                               </button>
                               <span className="w-7 text-center font-bold text-sm tabular-nums">{qty}</span>
                               <button
-                                onClick={() => addFromCatalog(product, pres, 1)}
-                                className="w-7 h-7 rounded-lg bg-amarillo flex items-center justify-center"
+                                onClick={() => {
+                                  if (stockMax != null && totalCartQtyForProd >= stockMax) return
+                                  addFromCatalog(product, pres, 1)
+                                }}
+                                disabled={stockMax != null && totalCartQtyForProd >= stockMax}
+                                className="w-7 h-7 rounded-lg bg-amarillo flex items-center justify-center disabled:opacity-40"
                               >
                                 <Plus size={11} className="text-negro" />
                               </button>
                             </div>
                           ) : (
                             <button
-                              onClick={() => addFromCatalog(product, pres, addStep)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-negro text-white rounded-lg text-xs font-bold shrink-0 hover:bg-negro/90 transition-colors"
+                              onClick={() => {
+                                if (stockMax != null && totalCartQtyForProd >= stockMax) return
+                                addFromCatalog(product, pres, addStep)
+                              }}
+                              disabled={stockMax != null && totalCartQtyForProd >= stockMax}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-negro text-white rounded-lg text-xs font-bold shrink-0 hover:bg-negro/90 transition-colors disabled:opacity-40"
                             >
                               <Plus size={11} /> Agregar
                             </button>

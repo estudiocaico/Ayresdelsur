@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { cn } from '@/lib/utils'
-import { Search, Minus, Plus, Loader2, Zap } from 'lucide-react'
+import { Search, Minus, Plus, Loader2, Zap, AlertTriangle } from 'lucide-react'
 
 const CATEGORY_ICONS = {
   'Almacen':             '🧂',
@@ -136,6 +136,7 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
   const product = promo.productos
   const [imgFailed, setImgFailed] = useState(false)
   const [imgSrc, setImgSrc]       = useState(product?.imagen_url ?? null)
+  const [stockWarn, setStockWarn] = useState(false)
 
   const presentacion     = promo.presentacion ?? 'unidad'
   const unitPriceForPres = product ? getPrecioByPresentation(product, null, listaPrecio, presentacion) : null
@@ -156,8 +157,20 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
   const key      = `${product?.id}-base-${presentacion}`
   const cartItem = cartItems.find(i => i.key === key)
 
+  // Stock
+  const stockMax = product?.stock_activo && product?.stock_cantidad != null ? product.stock_cantidad : null
+  const stockBajo = product?.stock_activo && product?.stock_cantidad != null && product.stock_cantidad > 0
+    && product.stock_cantidad <= (product?.stock_umbral_bajo ?? 0)
+  const totalCartQty = cartItems.filter(i => i.productId === product?.id).reduce((s, i) => s + i.qty, 0)
+
+  function triggerStockWarn() {
+    setStockWarn(true)
+    setTimeout(() => setStockWarn(false), 3000)
+  }
+
   function handleAdd() {
     if (!product || effectivePrice == null) return
+    if (stockMax != null && totalCartQty >= stockMax) { triggerStockWarn(); return }
     if (promo.tipo_promo === 'nxm' && promo.promo_n && promo.promo_m) {
       onAdd(product, addQty, null, badge, basePrice, presentacion,
         { promoN: promo.promo_n, promoM: promo.promo_m })
@@ -167,6 +180,18 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
     } else {
       onAdd(product, addQty, null, badge, effectivePrice, presentacion)
     }
+  }
+
+  function handleUpdate(key, newQty) {
+    if (stockMax != null) {
+      const currentQty = cartItem?.qty ?? 0
+      const otherQty   = totalCartQty - currentQty
+      const capped     = Math.min(newQty, stockMax - otherQty)
+      if (capped < newQty) triggerStockWarn()
+      onUpdate(key, Math.max(0, capped))
+      return
+    }
+    onUpdate(key, newQty)
   }
 
   if (!product || effectivePrice == null) return null
@@ -179,14 +204,19 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
       {/* Left: text content */}
       <div className="flex flex-col justify-between p-3 flex-1 min-w-0">
 
-        {/* Promo badge + presentation label */}
-        <div className="flex items-center gap-1.5">
+        {/* Promo badge + presentation label + stock bajo */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="inline-flex items-center gap-1 bg-amarillo text-negro text-[0.6rem] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full">
             <Zap size={8} /> {badge}
           </span>
           {presentacion !== 'unidad' && (
             <span className="text-[0.58rem] font-bold uppercase text-white/50 leading-none">
               {presentacion === 'pack' ? 'Pack' : 'Pallet'}
+            </span>
+          )}
+          {stockBajo && (
+            <span className="text-[0.58rem] font-extrabold uppercase bg-orange-500/80 text-white px-1.5 py-0.5 rounded-full leading-none">
+              Últimas unidades
             </span>
           )}
         </div>
@@ -218,14 +248,14 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
             {cartItem ? (
               <div className="flex items-center gap-1 shrink-0">
                 <button
-                  onClick={() => onUpdate(key, cartItem.qty - 1)}
+                  onClick={() => handleUpdate(key, cartItem.qty - 1)}
                   className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-colors"
                 >
                   <Minus size={10} />
                 </button>
                 <span className="font-display font-extrabold text-sm text-white min-w-[16px] text-center">{cartItem.qty}</span>
                 <button
-                  onClick={() => onUpdate(key, cartItem.qty + 1)}
+                  onClick={() => handleUpdate(key, cartItem.qty + 1)}
                   className="w-6 h-6 rounded-full bg-amarillo hover:bg-amarillo/80 text-negro flex items-center justify-center transition-colors"
                 >
                   <Plus size={10} />
@@ -238,6 +268,11 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
               >
                 {addQty > 1 ? `+${addQty}u.` : '+ Agregar'}
               </button>
+            )}
+            {stockWarn && (
+              <p className="text-[0.58rem] text-orange-300 font-semibold mt-0.5 leading-tight w-full">
+                Solo quedan {stockMax} u. disponibles
+              </p>
             )}
           </div>
         </div>
@@ -274,6 +309,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const [presentacion, setPresentacion]       = useState('unidad')
   const [imgSrc, setImgSrc]   = useState(product.imagen_url ?? null)
   const [imgFailed, setImgFailed] = useState(false)
+  const [stockWarn, setStockWarn] = useState(false)
 
   // Reset presentation when variant changes (pack/pallet may not be available on new variant)
   function handleVariantChange(varId) {
@@ -303,13 +339,39 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const totalPrice   = (unidadesPres && displayPrice != null) ? displayPrice * unidadesPres : displayPrice
   const catColor     = CATEGORY_COLORS[product.categorias?.nombre]
 
+  // Stock
+  const stockMax  = product.stock_activo && product.stock_cantidad != null ? product.stock_cantidad : null
+  const stockBajo = product.stock_activo && product.stock_cantidad != null && product.stock_cantidad > 0
+    && product.stock_cantidad <= (product.stock_umbral_bajo ?? 0)
+  const totalCartQtyForProduct = cartItems
+    .filter(i => i.productId === product.id)
+    .reduce((s, i) => s + i.qty, 0)
+
+  function triggerStockWarn() {
+    setStockWarn(true)
+    setTimeout(() => setStockWarn(false), 3000)
+  }
+
   function handleAdd() {
+    if (stockMax != null && totalCartQtyForProduct >= stockMax) { triggerStockWarn(); return }
     const presUnits = unidadesPres ? ` · ${unidadesPres} u.` : ''
     const presLabel = presentacion !== 'unidad' ? `${PRES_LABELS[presentacion]}${presUnits}` : ''
     const varLabel  = selectedVariant?.valor ?? ''
     const label     = [varLabel, presLabel].filter(Boolean).join(' · ')
     // price stored in cart = total pack/pallet price so cart math is correct
     onAdd(product, 1, selectedVariant?.id ?? null, label || varLabel, totalPrice, presentacion)
+  }
+
+  function handleUpdate(key, newQty) {
+    if (stockMax != null) {
+      const currentQty = cartItem?.qty ?? 0
+      const otherQty   = totalCartQtyForProduct - currentQty
+      const capped     = Math.min(newQty, stockMax - otherQty)
+      if (capped < newQty) triggerStockWarn()
+      onUpdate(key, Math.max(0, capped))
+      return
+    }
+    onUpdate(key, newQty)
   }
 
   if (displayPrice == null) return null // product has no valid price
@@ -347,6 +409,11 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
       {/* Info */}
       <div className="flex-1 min-w-0 px-3 py-3">
         <div className="font-bold text-sm text-negro leading-snug">{product.nombre}</div>
+        {stockBajo && (
+          <span className="inline-flex items-center gap-1 text-[0.6rem] font-extrabold uppercase bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded-full mt-0.5">
+            <AlertTriangle size={8} /> Últimas unidades
+          </span>
+        )}
         {product.descripcion && (
           <div className="text-[0.72rem] text-muted-foreground mt-0.5 line-clamp-1">{product.descripcion}</div>
         )}
@@ -403,18 +470,18 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col justify-end shrink-0 px-3 py-3">
+      <div className="flex flex-col justify-end items-end shrink-0 px-3 py-3 gap-1">
         {cartItem ? (
           <div className="flex items-center gap-1">
             <button
-              onClick={() => onUpdate(key, cartItem.qty - 1)}
+              onClick={() => handleUpdate(key, cartItem.qty - 1)}
               className="w-7 h-7 rounded-full bg-cream-dark hover:bg-negro hover:text-white text-negro flex items-center justify-center transition-colors"
             >
               <Minus size={12} />
             </button>
             <span className="font-display font-extrabold text-sm min-w-[22px] text-center">{cartItem.qty}</span>
             <button
-              onClick={() => onUpdate(key, cartItem.qty + 1)}
+              onClick={() => handleUpdate(key, cartItem.qty + 1)}
               className="w-7 h-7 rounded-full bg-cream-dark hover:bg-negro hover:text-white text-negro flex items-center justify-center transition-colors"
             >
               <Plus size={12} />
@@ -427,6 +494,11 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           >
             + Agregar
           </button>
+        )}
+        {stockWarn && (
+          <p className="text-[0.62rem] text-orange-600 font-semibold leading-tight text-right whitespace-nowrap">
+            Solo quedan {stockMax} u.
+          </p>
         )}
       </div>
     </div>
@@ -479,7 +551,7 @@ export default function Catalog() {
         const ids = [...new Set(promoRows.map(p => p.producto_id))]
         const { data: promoProds } = await supabase
           .from('productos')
-          .select('id, nombre, precio, precio_mediano, precio_mayorista, precio_pack, precio_pack_mediano, precio_pack_mayorista, precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, imagen_url, unidad, unidades_pack, unidades_pallet, categorias(nombre)')
+          .select('id, nombre, precio, precio_mediano, precio_mayorista, precio_pack, precio_pack_mediano, precio_pack_mayorista, precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, imagen_url, unidad, unidades_pack, unidades_pallet, categorias(nombre), stock_activo, stock_cantidad, stock_umbral_bajo')
           .in('id', ids)
         const prodMap = Object.fromEntries((promoProds ?? []).map(p => [p.id, p]))
         setPromos(promoRows.map(p => ({ ...p, productos: prodMap[p.producto_id] ?? null })))
@@ -492,6 +564,8 @@ export default function Catalog() {
 
   const filtered = useMemo(() => {
     return products.filter(p => {
+      // Ocultar productos agotados (stock_activo=true y stock_cantidad=0)
+      if (p.stock_activo && p.stock_cantidad === 0) return false
       const matchCat    = activeCategory === 'Todos' || p.categorias?.nombre === activeCategory
       const matchSearch = !search ||
         p.nombre.toLowerCase().includes(search.toLowerCase()) ||
@@ -500,9 +574,13 @@ export default function Catalog() {
     })
   }, [products, activeCategory, search])
 
-  // Only show promos targeted at the client's price list
+  // Only show promos targeted at the client's price list; hide agotado
   const visiblePromos = useMemo(() =>
-    promos.filter(p => !p.listas_precios?.length || p.listas_precios.includes(listaPrecio)),
+    promos.filter(p => {
+      if (p.listas_precios?.length && !p.listas_precios.includes(listaPrecio)) return false
+      if (p.productos?.stock_activo && p.productos?.stock_cantidad === 0) return false
+      return true
+    }),
     [promos, listaPrecio]
   )
 

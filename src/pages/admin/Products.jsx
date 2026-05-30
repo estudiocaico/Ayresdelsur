@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Loader2, Pencil, ToggleLeft, ToggleRight, Plus, X, Search } from 'lucide-react'
+import { Loader2, Pencil, ToggleLeft, ToggleRight, Plus, X, Search, Package } from 'lucide-react'
 
 async function fetchOFFImageUrl(ean) {
   try {
@@ -103,6 +103,9 @@ export default function AdminProducts() {
       precio_pallet_mayorista: p.precio_pallet_mayorista ?? '',
       unidades_pack:           p.unidades_pack ?? '',
       unidades_pallet:         p.unidades_pallet ?? '',
+      stock_activo:            p.stock_activo  ?? false,
+      stock_cantidad:          p.stock_cantidad  != null ? p.stock_cantidad  : '',
+      stock_umbral_bajo:       p.stock_umbral_bajo != null ? p.stock_umbral_bajo : '',
     })
     setVariants((p.variantes_producto ?? []).map(v => ({
       id: v.id, valor: v.valor ?? '',
@@ -153,6 +156,8 @@ export default function AdminProducts() {
 
   async function saveEdit(e) {
     e.preventDefault(); setSaving(true)
+    const stockCantidad  = editing.stock_activo && editing.stock_cantidad  !== '' ? parseInt(editing.stock_cantidad)  : null
+    const stockUmbral    = editing.stock_activo && editing.stock_umbral_bajo !== '' ? parseInt(editing.stock_umbral_bajo) : null
     await supabase.from('productos').update({
       nombre: editing.nombre, descripcion: editing.descripcion,
       precio: parseFloat(editing.precio),
@@ -162,6 +167,9 @@ export default function AdminProducts() {
       unidades_pack: editing.unidades_pack !== '' ? parseInt(editing.unidades_pack) : null,
       unidades_pallet: editing.unidades_pallet !== '' ? parseInt(editing.unidades_pallet) : null,
       unidad: editing.unidad, categoria_id: editing.categoria_id, imagen_url: editing.imagen_url || null,
+      stock_activo:     !!editing.stock_activo,
+      stock_cantidad:   stockCantidad,
+      stock_umbral_bajo: stockUmbral,
     }).eq('id', editing.id)
 
     if (deletedVarIds.length > 0) await supabase.from('variantes_producto').delete().in('id', deletedVarIds)
@@ -280,6 +288,61 @@ export default function AdminProducts() {
                 ))}
               </div>
 
+              {/* Stock */}
+              <div className="bg-cream rounded-lg p-4">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground">Stock</p>
+                    <p className="text-[0.68rem] text-muted-foreground">Desactivado = el producto aparece sin restricciones</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(f => ({ ...f, stock_activo: !f.stock_activo }))}
+                    className="shrink-0"
+                    title={editing.stock_activo ? 'Desactivar control de stock' : 'Activar control de stock'}
+                  >
+                    {editing.stock_activo
+                      ? <ToggleRight size={30} className="text-green-600" />
+                      : <ToggleLeft  size={30} className="text-gray-400"  />}
+                  </button>
+                </div>
+
+                {editing.stock_activo && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
+                        Stock disponible
+                      </Label>
+                      <Input
+                        type="number" min="0" step="1" placeholder="0"
+                        value={editing.stock_cantidad}
+                        onChange={e => setEditing(f => ({ ...f, stock_cantidad: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                      {(editing.stock_cantidad === '0' || editing.stock_cantidad === 0) && (
+                        <p className="text-[0.67rem] text-red-600 font-semibold leading-tight">
+                          ⚠ Stock 0 → el producto se ocultará del catálogo.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
+                        Umbral de stock bajo
+                      </Label>
+                      <Input
+                        type="number" min="0" step="1" placeholder="0"
+                        value={editing.stock_umbral_bajo}
+                        onChange={e => setEditing(f => ({ ...f, stock_umbral_bajo: e.target.value }))}
+                        className="h-9 text-sm"
+                      />
+                      <p className="text-[0.67rem] text-muted-foreground leading-tight">
+                        Se mostrará aviso al cliente cuando el stock sea igual o menor a este número
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
@@ -367,7 +430,7 @@ export default function AdminProducts() {
                     <div className="flex items-center gap-2">
                       {p.imagen_url
                         ? <img src={p.imagen_url} alt="" className="w-8 h-8 rounded object-cover shrink-0 border border-border" />
-                        : <div className="w-8 h-8 rounded bg-cream-dark shrink-0 flex items-center justify-center text-base">📦</div>
+                        : <div className="w-8 h-8 rounded bg-cream-dark shrink-0 flex items-center justify-center"><Package size={16} className="text-muted-foreground" /></div>
                       }
                       <div className="min-w-0">
                         <div className="font-semibold text-sm">{p.nombre}</div>
@@ -377,6 +440,17 @@ export default function AdminProducts() {
                           {p.precio_mediano   ? ` · Med: ${formatPrice(p.precio_mediano)}`   : ''}
                           {p.precio_mayorista ? ` · May: ${formatPrice(p.precio_mayorista)}` : ''}
                         </div>
+                        {p.stock_activo && (
+                          <span className={`inline-block mt-0.5 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border ${
+                            p.stock_cantidad === 0
+                              ? 'bg-red-100 text-red-700 border-red-200'
+                              : p.stock_cantidad != null && p.stock_cantidad <= (p.stock_umbral_bajo ?? 0)
+                                ? 'bg-orange-100 text-orange-700 border-orange-200'
+                                : 'bg-green-100 text-green-700 border-green-200'
+                          }`}>
+                            {p.stock_cantidad === 0 ? 'Agotado' : `Stock: ${p.stock_cantidad ?? '—'} u.`}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </TableCell>

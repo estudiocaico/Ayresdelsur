@@ -110,7 +110,7 @@ function calcTotal(cart) {
 }
 
 // ── Cache del catálogo (1 hora) ───────────────────────────────────────────────
-const CACHE_KEY = 'ads_vendedor_catalog_v2'
+const CACHE_KEY = 'ads_vendedor_catalog_v3'
 const CACHE_TTL = 60 * 60 * 1000
 
 function getCachedCatalog() {
@@ -347,6 +347,7 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
           precio, precio_mediano, precio_mayorista,
           precio_pack, precio_pack_mediano, precio_pack_mayorista, unidades_pack,
           precio_pallet, precio_pallet_mediano, precio_pallet_mayorista, unidades_pallet,
+          stock_activo, stock_cantidad, stock_umbral_bajo,
           categoria_id, categorias(id, nombre)`)
         .eq('activo', true)
         .order('nombre'),
@@ -435,9 +436,11 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
     return cart.find(i => i.key === `${productId}-${presentacion}`)?.qty ?? 0
   }
 
-  // ── Filtros + orden (productos con promo primero) ─────────────────────────
+  // ── Filtros + orden (productos con promo primero; agotados ocultos) ─────────
   const visibleProducts = (catalog?.productos ?? [])
     .filter(p => {
+      // Ocultar agotados
+      if (p.stock_activo && p.stock_cantidad === 0) return false
       if (catFilter && p.categoria_id !== catFilter) return false
       if (textFilter) {
         const q = textFilter.toLowerCase()
@@ -532,6 +535,12 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
           if (p.precio_pack != null)   pres.push('pack')
           if (p.precio_pallet != null) pres.push('pallet')
 
+          const stockMax     = p.stock_activo && p.stock_cantidad != null ? p.stock_cantidad : null
+          const stockBajo    = p.stock_activo && p.stock_cantidad != null && p.stock_cantidad > 0
+            && p.stock_cantidad <= (p.stock_umbral_bajo ?? 0)
+          // Total en carrito para este producto (todas las presentaciones)
+          const totalCartQtyForProd = cart.filter(i => i.productId === p.id).reduce((s, i) => s + i.qty, 0)
+
           return (
             <div
               key={p.id}
@@ -544,10 +553,22 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                 className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
               >
                 <div className="flex-1 min-w-0">
-                  <span className="font-bold text-[0.92rem] text-negro leading-snug">{p.nombre}</span>
-                  {p.codigo_interno && (
-                    <span className="text-[0.65rem] text-muted-foreground ml-1.5">({p.codigo_interno})</span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-[0.92rem] text-negro leading-snug">{p.nombre}</span>
+                    {p.codigo_interno && (
+                      <span className="text-[0.65rem] text-muted-foreground">({p.codigo_interno})</span>
+                    )}
+                    {/* Vendedor ve el stock exacto */}
+                    {p.stock_activo && p.stock_cantidad != null && (
+                      <span className={`text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border ${
+                        stockBajo
+                          ? 'bg-orange-100 text-orange-700 border-orange-200'
+                          : 'bg-green-50 text-green-700 border-green-200'
+                      }`}>
+                        Stock: {p.stock_cantidad} u.
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {bestPromo && (
@@ -681,13 +702,26 @@ function Step2({ cliente, cart, setCart, onBack, onNext }) {
                           <input
                             type="number"
                             min="0"
+                            max={stockMax ?? undefined}
                             value={qty}
-                            onChange={e => setQty(p, pr, parseInt(e.target.value) || 0)}
+                            onChange={e => {
+                              const newVal = parseInt(e.target.value) || 0
+                              if (stockMax != null) {
+                                const otherQty = totalCartQtyForProd - qty
+                                setQty(p, pr, Math.min(newVal, Math.max(0, stockMax - otherQty)))
+                              } else {
+                                setQty(p, pr, newVal)
+                              }
+                            }}
                             className="w-10 text-center font-extrabold text-base bg-transparent focus:outline-none"
                           />
                           <button
-                            onClick={() => setQty(p, pr, qty === 0 ? addQtyStep : qty + 1)}
-                            className="w-7 h-7 rounded-full bg-negro flex items-center justify-center text-white hover:bg-negro/80 transition-colors"
+                            onClick={() => {
+                              if (stockMax != null && totalCartQtyForProd >= stockMax) return
+                              setQty(p, pr, qty === 0 ? addQtyStep : qty + 1)
+                            }}
+                            disabled={stockMax != null && totalCartQtyForProd >= stockMax}
+                            className="w-7 h-7 rounded-full bg-negro flex items-center justify-center text-white hover:bg-negro/80 transition-colors disabled:opacity-40"
                           >
                             <Plus size={12} />
                           </button>
