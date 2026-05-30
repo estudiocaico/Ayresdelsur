@@ -26,6 +26,7 @@ import VendedorLayout from './pages/vendedor/VendedorLayout'
 import MisVisitas from './pages/vendedor/MisVisitas'
 import NuevoPedido from './pages/vendedor/NuevoPedido'
 import MiPerfil from './pages/vendedor/MiPerfil'
+import EditarPedido from './pages/vendedor/EditarPedido'
 
 export default function App() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
             <Route element={<VendedorLayout />}>
               <Route index element={<MisVisitas />} />
               <Route path="pedido" element={<NuevoPedido />} />
+              <Route path="editar/:id" element={<EditarPedido />} />
               <Route path="perfil" element={<MiPerfil />} />
             </Route>
           </Route>

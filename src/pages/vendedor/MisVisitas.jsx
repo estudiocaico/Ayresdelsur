@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useVendedor } from './VendedorLayout'
-import { Loader2, MapPin, Phone, Calendar, FileText, X } from 'lucide-react'
+import { Loader2, MapPin, Phone, Calendar, FileText, X, Pencil } from 'lucide-react'
 
 const ESTADO_BADGE = {
   pendiente: 'bg-yellow-100 text-yellow-800',
@@ -139,6 +140,7 @@ function PedidoModal({ pedido, onClose }) {
 function PedidoCard({ pedido, onMarcarRealizado, onVerPedido }) {
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading]       = useState(false)
+  const navigate = useNavigate()
   const c = pedido.clientes
 
   async function handleCerrar() {
@@ -206,6 +208,15 @@ function PedidoCard({ pedido, onMarcarRealizado, onVerPedido }) {
         >
           Ver pedido
         </button>
+
+        {pedido.estado !== 'cerrado' && pedido.estado !== 'cancelado' && (
+          <button
+            onClick={() => navigate(`/vendedor/editar/${pedido.id}`)}
+            className="py-2 px-3 bg-azul text-white text-sm font-bold rounded-lg hover:bg-azul/90 transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Pencil size={13} /> Editar
+          </button>
+        )}
 
         {pedido.estado !== 'cerrado' && pedido.estado !== 'cancelado' && (
           confirming ? (
