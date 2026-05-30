@@ -26,7 +26,8 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
       const cid = p.clientes?.id ?? '__unknown__'
       if (!acc[cid]) acc[cid] = { cliente: p.clientes, pedidos: [], total: 0 }
       acc[cid].pedidos.push(p)
-      acc[cid].total += p.total ?? 0
+      // Usar saldo restante, no el total original
+      acc[cid].total += Math.max(0, (p.total ?? 0) - (p.monto_pagado ?? 0))
       return acc
     }, {})
   ).sort((a, b) => b.total - a.total)
@@ -37,17 +38,30 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
 
   async function cobrar() {
     setSaving(true)
+    const pedido         = deudaData.find(p => p.id === pagoForm.id)
+    const pagadoAnterior = pedido?.monto_pagado ?? 0
+    const nuevoPago      = parseFloat(pagoForm.monto) || 0
+    const nuevoPagado    = pagadoAnterior + nuevoPago
+    const totalPedido    = pedido?.total ?? 0
+    const pagadoCompleto = nuevoPagado >= totalPedido
+
     const updates = {
-      estado_pago:  'pagado',
-      monto_pagado: parseFloat(pagoForm.monto) || null,
-      nota_pago:    pagoForm.nota?.trim() || null,
-      fecha_pago:   new Date().toISOString(),
+      monto_pagado: nuevoPagado,
+      nota_pago:    pagoForm.nota?.trim() || pedido?.nota_pago || null,
+      ...(pagadoCompleto
+        ? { estado_pago: 'pagado', fecha_pago: new Date().toISOString() }
+        : {}),
     }
     await supabase.from('prepedidos').update(updates).eq('id', pagoForm.id)
 
-    const paid = deudaData.find(p => p.id === pagoForm.id)
-    setDeudaData(prev => prev.filter(p => p.id !== pagoForm.id))
-    if (paid) setHistorialData(prev => [{ ...paid, ...updates }, ...prev])
+    if (pagadoCompleto) {
+      // Mover al historial
+      setDeudaData(prev => prev.filter(p => p.id !== pagoForm.id))
+      if (pedido) setHistorialData(prev => [{ ...pedido, ...updates }, ...prev])
+    } else {
+      // Mantener en deuda con el saldo actualizado
+      setDeudaData(prev => prev.map(p => p.id === pagoForm.id ? { ...p, ...updates } : p))
+    }
 
     setPagoForm(null)
     setSaving(false)
@@ -132,61 +146,79 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
               {/* Pedidos del cliente */}
               {isOpen && (
                 <div className="border-t border-cream-dark">
-                  {pedidos.map((p, i) => (
-                    <div
-                      key={p.id}
-                      className={`flex items-center gap-3 px-5 py-3 ${i < pedidos.length - 1 ? 'border-b border-cream-dark' : ''}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-negro">{p.numero_referencia}</p>
-                        <p className="text-[0.72rem] text-muted-foreground">
-                          Pedido: {formatFecha(p.created_at)}
-                        </p>
-                      </div>
-                      <p className="font-bold text-sm text-negro shrink-0">{formatPrice(p.total)}</p>
+                  {pedidos.map((p, i) => {
+                    const pagadoHasta  = p.monto_pagado ?? 0
+                    const restante     = Math.max(0, (p.total ?? 0) - pagadoHasta)
+                    const tieneParcial = pagadoHasta > 0
 
-                      {pagoForm?.id === p.id ? (
-                        /* Formulario inline */
-                        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                          <input
-                            type="number"
-                            value={pagoForm.monto}
-                            onChange={e => setPagoForm(f => ({ ...f, monto: e.target.value }))}
-                            placeholder="Monto"
-                            className="w-28 h-7 rounded-md border border-input px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          <input
-                            type="text"
-                            value={pagoForm.nota}
-                            onChange={e => setPagoForm(f => ({ ...f, nota: e.target.value }))}
-                            placeholder="Nota (opcional)"
-                            className="w-36 h-7 rounded-md border border-input px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          <button
-                            onClick={cobrar}
-                            disabled={saving}
-                            className="h-7 px-3 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                          >
-                            {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
-                            Cobrar
-                          </button>
-                          <button
-                            onClick={() => setPagoForm(null)}
-                            className="h-7 px-2 text-xs text-muted-foreground hover:text-negro transition-colors"
-                          >
-                            Cancelar
-                          </button>
+                    return (
+                      <div
+                        key={p.id}
+                        className={`flex items-center gap-3 px-5 py-3 ${i < pedidos.length - 1 ? 'border-b border-cream-dark' : ''}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-negro">{p.numero_referencia}</p>
+                          <p className="text-[0.72rem] text-muted-foreground">
+                            Pedido: {formatFecha(p.created_at)}
+                          </p>
+                          {tieneParcial && (
+                            <p className="text-[0.72rem] font-semibold text-amarillo">
+                              Pagó {formatPrice(pagadoHasta)} · Resta {formatPrice(restante)}
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setPagoForm({ id: p.id, monto: String(p.total ?? ''), nota: '' })}
-                          className="shrink-0 h-7 px-3 border border-input bg-white text-xs font-bold rounded-md hover:bg-cream transition-colors flex items-center gap-1"
-                        >
-                          <Banknote size={12} /> Cobrar
-                        </button>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Monto visible: restante si hay pago parcial, total si no */}
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-sm text-negro">{formatPrice(tieneParcial ? restante : p.total)}</p>
+                          {tieneParcial && (
+                            <p className="text-[0.68rem] text-muted-foreground line-through">{formatPrice(p.total)}</p>
+                          )}
+                        </div>
+
+                        {pagoForm?.id === p.id ? (
+                          /* Formulario inline */
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                            <input
+                              type="number"
+                              value={pagoForm.monto}
+                              onChange={e => setPagoForm(f => ({ ...f, monto: e.target.value }))}
+                              placeholder="Monto"
+                              className="w-28 h-7 rounded-md border border-input px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <input
+                              type="text"
+                              value={pagoForm.nota}
+                              onChange={e => setPagoForm(f => ({ ...f, nota: e.target.value }))}
+                              placeholder="Nota (opcional)"
+                              className="w-36 h-7 rounded-md border border-input px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            />
+                            <button
+                              onClick={cobrar}
+                              disabled={saving}
+                              className="h-7 px-3 bg-green-600 text-white text-xs font-bold rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                              Cobrar
+                            </button>
+                            <button
+                              onClick={() => setPagoForm(null)}
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-negro transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setPagoForm({ id: p.id, monto: String(restante || p.total || ''), nota: '' })}
+                            className="shrink-0 h-7 px-3 border border-input bg-white text-xs font-bold rounded-md hover:bg-cream transition-colors flex items-center gap-1"
+                          >
+                            <Banknote size={12} /> Cobrar
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </Card>
