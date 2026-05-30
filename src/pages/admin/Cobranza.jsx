@@ -59,7 +59,7 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
 
     const updates = {
       monto_pagado: nuevoPagado,
-      nota_pago:    pagoForm.nota?.trim() || pedido?.nota_pago || null,
+      nota_pago:    pagoForm.nota?.trim() || null,
       ...(pagadoCompleto
         ? { estado_pago: 'pagado', fecha_pago: new Date().toISOString() }
         : {}),
@@ -238,7 +238,7 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
                           </div>
                         ) : (
                           <button
-                            onClick={() => setPagoForm({ id: p.id, monto: String(restante || p.total || ''), nota: '' })}
+                            onClick={() => setPagoForm({ id: p.id, monto: String(restante || p.total || ''), nota: p.nota_pago ?? '' })}
                             className="shrink-0 h-7 px-3 border border-input bg-white text-xs font-bold rounded-md hover:bg-cream transition-colors flex items-center gap-1"
                           >
                             <Banknote size={12} /> Cobrar
