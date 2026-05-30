@@ -22,8 +22,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'Ayres del Sur', {
       body:    data.body ?? '',
-      icon:    '/icon-192.png',
-      badge:   '/icon-192.png',
+      icon:    '/logo-circular.png',
+      badge:   '/logo-circular.png',
       vibrate: [100, 50, 100],
       data:    { url: data.url ?? '/' },
     })
