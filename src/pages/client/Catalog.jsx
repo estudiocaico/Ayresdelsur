@@ -305,7 +305,11 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
 
 // ─── ProductCard ──────────────────────────────────────────────────────────────
 function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
-  const [selectedVariant, setSelectedVariant] = useState(product.variantes_producto?.[0] ?? null)
+  const [selectedVariant, setSelectedVariant] = useState(() => {
+    const variants = product.variantes_producto ?? []
+    // Start with first non-agotado variant; fall back to first variant
+    return variants.find(v => !(v.stock_activo && v.stock_cantidad === 0)) ?? variants[0] ?? null
+  })
   const [presentacion, setPresentacion]       = useState('unidad')
   const [imgSrc, setImgSrc]   = useState(product.imagen_url ?? null)
   const [imgFailed, setImgFailed] = useState(false)
@@ -339,12 +343,17 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   const totalPrice   = (unidadesPres && displayPrice != null) ? displayPrice * unidadesPres : displayPrice
   const catColor     = CATEGORY_COLORS[product.categorias?.nombre]
 
-  // Stock
-  const stockMax  = product.stock_activo && product.stock_cantidad != null ? product.stock_cantidad : null
-  const stockBajo = product.stock_activo && product.stock_cantidad != null && product.stock_cantidad > 0
-    && product.stock_cantidad <= (product.stock_umbral_bajo ?? 0)
-  const totalCartQtyForProduct = cartItems
-    .filter(i => i.productId === product.id)
+  // Stock: use variant-level stock if a variant is selected, else product-level
+  const stockActivo   = selectedVariant ? selectedVariant.stock_activo   : product.stock_activo
+  const stockCantidad = selectedVariant ? selectedVariant.stock_cantidad  : product.stock_cantidad
+  const stockUmbral   = selectedVariant ? selectedVariant.stock_umbral_bajo : product.stock_umbral_bajo
+  const stockMax  = stockActivo && stockCantidad != null ? stockCantidad : null
+  const stockBajo = stockActivo && stockCantidad != null && stockCantidad > 0
+    && stockCantidad <= (stockUmbral ?? 0)
+
+  // Cart qty: scoped to this exact variant (or product-level for no-variant products)
+  const totalCartQtyForVariant = cartItems
+    .filter(i => selectedVariant ? i.variantId === selectedVariant.id : (i.productId === product.id && !i.variantId))
     .reduce((s, i) => s + i.qty, 0)
 
   function triggerStockWarn() {
@@ -353,7 +362,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   }
 
   function handleAdd() {
-    if (stockMax != null && totalCartQtyForProduct >= stockMax) { triggerStockWarn(); return }
+    if (stockMax != null && totalCartQtyForVariant >= stockMax) { triggerStockWarn(); return }
     const presUnits = unidadesPres ? ` · ${unidadesPres} u.` : ''
     const presLabel = presentacion !== 'unidad' ? `${PRES_LABELS[presentacion]}${presUnits}` : ''
     const varLabel  = selectedVariant?.valor ?? ''
@@ -365,7 +374,7 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
   function handleUpdate(key, newQty) {
     if (stockMax != null) {
       const currentQty = cartItem?.qty ?? 0
-      const otherQty   = totalCartQtyForProduct - currentQty
+      const otherQty   = totalCartQtyForVariant - currentQty
       const capped     = Math.min(newQty, stockMax - otherQty)
       if (capped < newQty) triggerStockWarn()
       onUpdate(key, Math.max(0, capped))
@@ -425,9 +434,11 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
             value={selectedVariant?.id ?? ''}
             onChange={e => handleVariantChange(e.target.value)}
           >
-            {product.variantes_producto.map(v => (
-              <option key={v.id} value={v.id}>{v.valor}</option>
-            ))}
+            {product.variantes_producto
+              .filter(v => !(v.stock_activo && v.stock_cantidad === 0))
+              .map(v => (
+                <option key={v.id} value={v.id}>{v.valor}</option>
+              ))}
           </select>
         )}
 
@@ -564,8 +575,15 @@ export default function Catalog() {
 
   const filtered = useMemo(() => {
     return products.filter(p => {
-      // Ocultar productos agotados (stock_activo=true y stock_cantidad=0)
-      if (p.stock_activo && p.stock_cantidad === 0) return false
+      // Ocultar productos completamente agotados
+      if ((p.variantes_producto?.length ?? 0) > 0) {
+        // Con variantes: ocultar solo si TODAS las variantes están agotadas
+        const allAgotado = p.variantes_producto.every(v => v.stock_activo && v.stock_cantidad === 0)
+        if (allAgotado) return false
+      } else {
+        // Sin variantes: ocultar si el stock del producto es 0
+        if (p.stock_activo && p.stock_cantidad === 0) return false
+      }
       const matchCat    = activeCategory === 'Todos' || p.categorias?.nombre === activeCategory
       const matchSearch = !search ||
         p.nombre.toLowerCase().includes(search.toLowerCase()) ||

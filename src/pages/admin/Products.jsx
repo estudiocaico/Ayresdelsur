@@ -112,6 +112,9 @@ export default function AdminProducts() {
       precio_minorista: v.precio_minorista ?? '', precio_mediano: v.precio_mediano ?? '', precio_mayorista: v.precio_mayorista ?? '',
       precio_pack: v.precio_pack ?? '', precio_pack_mediano: v.precio_pack_mediano ?? '', precio_pack_mayorista: v.precio_pack_mayorista ?? '',
       precio_pallet: v.precio_pallet ?? '', precio_pallet_mediano: v.precio_pallet_mediano ?? '', precio_pallet_mayorista: v.precio_pallet_mayorista ?? '',
+      stock_activo:      v.stock_activo     ?? false,
+      stock_cantidad:    v.stock_cantidad   != null ? v.stock_cantidad   : '',
+      stock_umbral_bajo: v.stock_umbral_bajo != null ? v.stock_umbral_bajo : '',
     })))
     setDeletedVarIds([])
   }
@@ -122,6 +125,7 @@ export default function AdminProducts() {
       precio_minorista: '', precio_mediano: '', precio_mayorista: '',
       precio_pack: '', precio_pack_mediano: '', precio_pack_mayorista: '',
       precio_pallet: '', precio_pallet_mediano: '', precio_pallet_mayorista: '',
+      stock_activo: false, stock_cantidad: '', stock_umbral_bajo: '',
     }])
   }
   function updateVariant(idx, field, value) { setVariants(prev => prev.map((v, i) => i === idx ? { ...v, [field]: value } : v)) }
@@ -156,8 +160,9 @@ export default function AdminProducts() {
 
   async function saveEdit(e) {
     e.preventDefault(); setSaving(true)
-    const stockCantidad  = editing.stock_activo && editing.stock_cantidad  !== '' ? parseInt(editing.stock_cantidad)  : null
-    const stockUmbral    = editing.stock_activo && editing.stock_umbral_bajo !== '' ? parseInt(editing.stock_umbral_bajo) : null
+    const hasVariants   = variants.length > 0
+    const stockCantidad = !hasVariants && editing.stock_activo && editing.stock_cantidad  !== '' ? parseInt(editing.stock_cantidad)  : null
+    const stockUmbral   = !hasVariants && editing.stock_activo && editing.stock_umbral_bajo !== '' ? parseInt(editing.stock_umbral_bajo) : null
     await supabase.from('productos').update({
       nombre: editing.nombre, descripcion: editing.descripcion,
       precio: parseFloat(editing.precio),
@@ -167,8 +172,8 @@ export default function AdminProducts() {
       unidades_pack: editing.unidades_pack !== '' ? parseInt(editing.unidades_pack) : null,
       unidades_pallet: editing.unidades_pallet !== '' ? parseInt(editing.unidades_pallet) : null,
       unidad: editing.unidad, categoria_id: editing.categoria_id, imagen_url: editing.imagen_url || null,
-      stock_activo:     !!editing.stock_activo,
-      stock_cantidad:   stockCantidad,
+      stock_activo:      hasVariants ? false : !!editing.stock_activo,
+      stock_cantidad:    stockCantidad,
       stock_umbral_bajo: stockUmbral,
     }).eq('id', editing.id)
 
@@ -179,6 +184,9 @@ export default function AdminProducts() {
       precio_minorista: parseNum(v.precio_minorista), precio_mediano: parseNum(v.precio_mediano), precio_mayorista: parseNum(v.precio_mayorista),
       precio_pack: parseNum(v.precio_pack), precio_pack_mediano: parseNum(v.precio_pack_mediano), precio_pack_mayorista: parseNum(v.precio_pack_mayorista),
       precio_pallet: parseNum(v.precio_pallet), precio_pallet_mediano: parseNum(v.precio_pallet_mediano), precio_pallet_mayorista: parseNum(v.precio_pallet_mayorista),
+      stock_activo:      !!v.stock_activo,
+      stock_cantidad:    v.stock_activo && v.stock_cantidad !== '' ? parseInt(v.stock_cantidad) : null,
+      stock_umbral_bajo: v.stock_activo && v.stock_umbral_bajo !== '' ? parseInt(v.stock_umbral_bajo) : null,
     })
     for (const v of variants.filter(v => v.id)) await supabase.from('variantes_producto').update(variantPayload(v)).eq('id', v.id)
     const nuevas = variants.filter(v => !v.id && v.valor.trim())
@@ -284,62 +292,108 @@ export default function AdminProducts() {
                     ].map(({ label, fields }) => (
                       <PriceGrid key={label} label={label} fields={fields} values={v} onChange={(k,val) => updateVariant(idx, k, val)} />
                     ))}
+
+                    {/* Stock de variante */}
+                    <div className="flex items-center gap-3 mt-1 pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[0.68rem] text-muted-foreground font-semibold uppercase tracking-wide">Stock</span>
+                        <button
+                          type="button"
+                          onClick={() => updateVariant(idx, 'stock_activo', !v.stock_activo)}
+                          title={v.stock_activo ? 'Desactivar stock' : 'Activar stock'}
+                        >
+                          {v.stock_activo
+                            ? <ToggleRight size={22} className="text-green-600" />
+                            : <ToggleLeft  size={22} className="text-gray-400"  />}
+                        </button>
+                      </div>
+                      {v.stock_activo && (
+                        <div className="flex gap-2 flex-1">
+                          <div className="flex flex-col gap-0.5 flex-1">
+                            <Label className="text-[0.65rem] text-muted-foreground">Disponible</Label>
+                            <Input
+                              type="number" min="0" step="1" placeholder="0"
+                              value={v.stock_cantidad}
+                              onChange={e => updateVariant(idx, 'stock_cantidad', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-0.5 flex-1">
+                            <Label className="text-[0.65rem] text-muted-foreground">Umbral bajo</Label>
+                            <Input
+                              type="number" min="0" step="1" placeholder="0"
+                              value={v.stock_umbral_bajo}
+                              onChange={e => updateVariant(idx, 'stock_umbral_bajo', e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {v.stock_activo && (v.stock_cantidad === '0' || v.stock_cantidad === 0) && (
+                        <p className="text-[0.65rem] text-red-600 font-semibold leading-tight shrink-0">⚠ Se ocultará</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* Stock */}
               <div className="bg-cream rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground">Stock</p>
-                    <p className="text-[0.68rem] text-muted-foreground">Desactivado = el producto aparece sin restricciones</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(f => ({ ...f, stock_activo: !f.stock_activo }))}
-                    className="shrink-0"
-                    title={editing.stock_activo ? 'Desactivar control de stock' : 'Activar control de stock'}
-                  >
-                    {editing.stock_activo
-                      ? <ToggleRight size={30} className="text-green-600" />
-                      : <ToggleLeft  size={30} className="text-gray-400"  />}
-                  </button>
-                </div>
-
-                {editing.stock_activo && (
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
-                        Stock disponible
-                      </Label>
-                      <Input
-                        type="number" min="0" step="1" placeholder="0"
-                        value={editing.stock_cantidad}
-                        onChange={e => setEditing(f => ({ ...f, stock_cantidad: e.target.value }))}
-                        className="h-9 text-sm"
-                      />
-                      {(editing.stock_cantidad === '0' || editing.stock_cantidad === 0) && (
-                        <p className="text-[0.67rem] text-red-600 font-semibold leading-tight">
-                          ⚠ Stock 0 → el producto se ocultará del catálogo.
-                        </p>
-                      )}
+                <p className="text-[0.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stock</p>
+                {variants.length > 0 ? (
+                  <p className="text-[0.72rem] text-muted-foreground italic">
+                    Este producto tiene variantes — el stock se gestiona individualmente en cada variante (sección de arriba).
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[0.68rem] text-muted-foreground">Desactivado = el producto aparece sin restricciones</p>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(f => ({ ...f, stock_activo: !f.stock_activo }))}
+                        className="shrink-0"
+                        title={editing.stock_activo ? 'Desactivar control de stock' : 'Activar control de stock'}
+                      >
+                        {editing.stock_activo
+                          ? <ToggleRight size={30} className="text-green-600" />
+                          : <ToggleLeft  size={30} className="text-gray-400"  />}
+                      </button>
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
-                        Umbral de stock bajo
-                      </Label>
-                      <Input
-                        type="number" min="0" step="1" placeholder="0"
-                        value={editing.stock_umbral_bajo}
-                        onChange={e => setEditing(f => ({ ...f, stock_umbral_bajo: e.target.value }))}
-                        className="h-9 text-sm"
-                      />
-                      <p className="text-[0.67rem] text-muted-foreground leading-tight">
-                        Se mostrará aviso al cliente cuando el stock sea igual o menor a este número
-                      </p>
-                    </div>
-                  </div>
+                    {editing.stock_activo && (
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
+                            Stock disponible
+                          </Label>
+                          <Input
+                            type="number" min="0" step="1" placeholder="0"
+                            value={editing.stock_cantidad}
+                            onChange={e => setEditing(f => ({ ...f, stock_cantidad: e.target.value }))}
+                            className="h-9 text-sm"
+                          />
+                          {(editing.stock_cantidad === '0' || editing.stock_cantidad === 0) && (
+                            <p className="text-[0.67rem] text-red-600 font-semibold leading-tight">
+                              ⚠ Stock 0 → el producto se ocultará del catálogo.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-[0.72rem] uppercase tracking-wider text-muted-foreground font-bold">
+                            Umbral de stock bajo
+                          </Label>
+                          <Input
+                            type="number" min="0" step="1" placeholder="0"
+                            value={editing.stock_umbral_bajo}
+                            onChange={e => setEditing(f => ({ ...f, stock_umbral_bajo: e.target.value }))}
+                            className="h-9 text-sm"
+                          />
+                          <p className="text-[0.67rem] text-muted-foreground leading-tight">
+                            Se mostrará aviso al cliente cuando el stock sea igual o menor a este número
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -440,17 +494,34 @@ export default function AdminProducts() {
                           {p.precio_mediano   ? ` · Med: ${formatPrice(p.precio_mediano)}`   : ''}
                           {p.precio_mayorista ? ` · May: ${formatPrice(p.precio_mayorista)}` : ''}
                         </div>
-                        {p.stock_activo && (
-                          <span className={`inline-block mt-0.5 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border ${
-                            p.stock_cantidad === 0
-                              ? 'bg-red-100 text-red-700 border-red-200'
-                              : p.stock_cantidad != null && p.stock_cantidad <= (p.stock_umbral_bajo ?? 0)
-                                ? 'bg-orange-100 text-orange-700 border-orange-200'
-                                : 'bg-green-100 text-green-700 border-green-200'
-                          }`}>
-                            {p.stock_cantidad === 0 ? 'Agotado' : `Stock: ${p.stock_cantidad ?? '—'} u.`}
-                          </span>
-                        )}
+                        {(() => {
+                          const cls = 'inline-block mt-0.5 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border'
+                          if ((p.variantes_producto?.length ?? 0) > 0) {
+                            const tracked = p.variantes_producto.filter(v => v.stock_activo)
+                            if (tracked.length === 0) return null
+                            const agotadas = tracked.filter(v => v.stock_cantidad === 0)
+                            const bajas    = tracked.filter(v => v.stock_cantidad > 0 && v.stock_cantidad <= (v.stock_umbral_bajo ?? 0))
+                            if (agotadas.length === tracked.length)
+                              return <span className={`${cls} bg-red-100 text-red-700 border-red-200`}>Agotado</span>
+                            if (agotadas.length > 0)
+                              return <span className={`${cls} bg-orange-100 text-orange-700 border-orange-200`}>{agotadas.length} variante{agotadas.length > 1 ? 's' : ''} agotada{agotadas.length > 1 ? 's' : ''}</span>
+                            if (bajas.length > 0)
+                              return <span className={`${cls} bg-orange-100 text-orange-700 border-orange-200`}>Stock bajo</span>
+                            return <span className={`${cls} bg-green-100 text-green-700 border-green-200`}>Stock OK</span>
+                          }
+                          if (!p.stock_activo) return null
+                          return (
+                            <span className={`${cls} ${
+                              p.stock_cantidad === 0
+                                ? 'bg-red-100 text-red-700 border-red-200'
+                                : p.stock_cantidad != null && p.stock_cantidad <= (p.stock_umbral_bajo ?? 0)
+                                  ? 'bg-orange-100 text-orange-700 border-orange-200'
+                                  : 'bg-green-100 text-green-700 border-green-200'
+                            }`}>
+                              {p.stock_cantidad === 0 ? 'Agotado' : `Stock: ${p.stock_cantidad ?? '—'} u.`}
+                            </span>
+                          )
+                        })()}
                       </div>
                     </div>
                   </TableCell>
