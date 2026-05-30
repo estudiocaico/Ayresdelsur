@@ -87,15 +87,25 @@ export default function Cart() {
       }).select().single()
       if (pedidoErr) throw pedidoErr
       const { error: itemsErr } = await supabase.from('items_prepedido').insert(items.map(i => {
-        const subtotal = calcItemTotal(i)
+        const subtotal   = calcItemTotal(i)
+        // Derivar etiqueta de promo desde los campos del carrito
+        const promoLabel = i.promoN && i.promoM
+          ? `${i.promoN}×${i.promoM}`
+          : (i.promoQtyMin && i.promoDesc != null)
+            ? `${i.promoDesc}% OFF`
+            : null
+        // precio_base solo para promos donde price == base (nxm y cantidad_minima)
+        const precioBase = promoLabel ? i.price : null
         return {
-          prepedido_id:   pedido.id,
-          producto_id:    i.productId,
-          variante_id:    i.variantId ?? null,
-          cantidad:       i.qty,
+          prepedido_id:    pedido.id,
+          producto_id:     i.productId,
+          variante_id:     i.variantId ?? null,
+          cantidad:        i.qty,
           precio_unitario: subtotal / i.qty,   // precio efectivo promedio
           subtotal,
-          presentacion:   i.presentacion ?? 'unidad',
+          presentacion:    i.presentacion ?? 'unidad',
+          promo_label:     promoLabel,
+          precio_base:     precioBase,
         }
       }))
       if (itemsErr) throw itemsErr
