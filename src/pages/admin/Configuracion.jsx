@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Save, Check, Plus, X, ExternalLink } from 'lucide-react'
+import { Loader2, Save, Check, Plus, X, ExternalLink, Bell, BellOff } from 'lucide-react'
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -23,6 +23,9 @@ export default function AdminConfiguracion() {
   const [saving, setSaving]                   = useState(false)
   const [saved, setSaved]                     = useState(false)
   const [error, setError]                     = useState('')
+  const [pushCount, setPushCount]             = useState(null)
+  const [broadcasting, setBroadcasting]       = useState(false)
+  const [broadcastDone, setBroadcastDone]     = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -37,6 +40,12 @@ export default function AdminConfiguracion() {
         }
         if (map.callmebot_apikey_global) setApikeyGlobal(map.callmebot_apikey_global)
       }
+      // Contar suscripciones push activas
+      const { count } = await supabase
+        .from('push_subscriptions')
+        .select('*', { count: 'exact', head: true })
+      setPushCount(count ?? 0)
+
       setLoading(false)
     }
     load()
@@ -51,6 +60,26 @@ export default function AdminConfiguracion() {
   }
   function removeDestino(num) { setDestinos(prev => prev.filter(d => d.numero !== num)) }
   function updateApikey(num, val) { setDestinos(prev => prev.map(d => d.numero === num ? { ...d, apikey: val } : d)) }
+
+  async function handleBroadcast() {
+    setBroadcasting(true)
+    try {
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          broadcast: true,
+          title: '🛍️ Novedades en el catálogo',
+          body:  'Hay productos nuevos disponibles para vos.',
+          url:   '/',
+        },
+      })
+      setBroadcastDone(true)
+      setTimeout(() => setBroadcastDone(false), 3000)
+    } catch (err) {
+      console.error('Broadcast push error:', err)
+    } finally {
+      setBroadcasting(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true); setError('')
@@ -194,6 +223,88 @@ export default function AdminConfiguracion() {
                 <p className="text-[0.68rem] text-muted-foreground">Formato: código país + código área + número sin espacios ni +</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Push Notifications */}
+        <Card className="shadow-panel">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell size={16} /> Notificaciones push (PWA)
+            </CardTitle>
+            <p className="text-[0.82rem] text-muted-foreground leading-relaxed">
+              Las notificaciones push permiten avisar a los clientes cuando su pedido cambia de estado.
+              Requieren configurar las <strong>VAPID keys</strong> en Vercel como variables de entorno.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+
+            {/* Instrucciones VAPID */}
+            <div className="rounded-lg border border-border bg-cream/60 p-4 space-y-2.5">
+              <p className="text-[0.8rem] font-bold text-negro">Cómo configurar las VAPID keys</p>
+              <ol className="list-decimal list-inside space-y-1.5 text-[0.78rem] text-muted-foreground">
+                <li>Generá las keys con:<br />
+                  <code className="bg-negro/8 rounded px-1.5 py-0.5 font-mono text-[0.75rem] select-all">
+                    npx web-push generate-vapid-keys
+                  </code>
+                </li>
+                <li>
+                  En <strong>Vercel → Settings → Environment Variables</strong> agregá:
+                  <ul className="list-disc list-inside ml-3 mt-1 space-y-0.5">
+                    <li><code className="font-mono text-[0.73rem]">VAPID_PUBLIC_KEY</code></li>
+                    <li><code className="font-mono text-[0.73rem]">VAPID_PRIVATE_KEY</code></li>
+                    <li><code className="font-mono text-[0.73rem]">VITE_VAPID_PUBLIC_KEY</code> ← la misma public key</li>
+                  </ul>
+                </li>
+                <li>
+                  En <strong>Supabase → Edge Functions → Secrets</strong> agregá las mismas{' '}
+                  <code className="font-mono text-[0.73rem]">VAPID_PUBLIC_KEY</code> y{' '}
+                  <code className="font-mono text-[0.73rem]">VAPID_PRIVATE_KEY</code>.
+                </li>
+                <li>Desplegá la Edge Function:<br />
+                  <code className="bg-negro/8 rounded px-1.5 py-0.5 font-mono text-[0.75rem] select-all">
+                    supabase functions deploy send-push-notification
+                  </code>
+                </li>
+              </ol>
+            </div>
+
+            {/* Contador y broadcast */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                {pushCount === null
+                  ? <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                  : pushCount === 0
+                  ? <BellOff size={16} className="text-muted-foreground" />
+                  : <Bell size={16} className="text-green-600" />
+                }
+                <span className="text-sm text-muted-foreground">
+                  {pushCount === null
+                    ? 'Cargando…'
+                    : pushCount === 0
+                    ? 'Sin clientes suscriptos aún'
+                    : `${pushCount} suscripción${pushCount !== 1 ? 'es' : ''} activa${pushCount !== 1 ? 's' : ''}`}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={broadcasting || !pushCount}
+                onClick={handleBroadcast}
+                className={`gap-2 shrink-0 ${broadcastDone ? 'border-green-600 text-green-700' : ''}`}
+              >
+                {broadcasting
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : broadcastDone
+                  ? <Check size={13} />
+                  : <Bell size={13} />}
+                {broadcastDone ? 'Enviado' : 'Notificar novedades a clientes'}
+              </Button>
+            </div>
+            <p className="text-[0.72rem] text-muted-foreground">
+              El botón envía el mensaje{' '}
+              <em>"Hay productos nuevos disponibles para vos."</em> a todos los clientes con notificaciones activas.
+            </p>
           </CardContent>
         </Card>
 

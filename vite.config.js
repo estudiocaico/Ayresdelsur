@@ -7,7 +7,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // injectManifest: permite un sw.js personalizado (necesario para push events)
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+      },
       manifest: {
         name: 'Ayres del Sur - Preventa',
         short_name: 'Ayres del Sur',

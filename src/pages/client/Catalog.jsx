@@ -4,9 +4,10 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { cn } from '@/lib/utils'
-import { Search, Minus, Plus, Loader2, Zap, AlertTriangle } from 'lucide-react'
+import { Search, Minus, Plus, Loader2, Zap, AlertTriangle, Heart } from 'lucide-react'
 
 const CATEGORY_ICONS = {
+  'Mis favoritos':       '❤️',
   'Almacen':             '🧂',
   'Almacén':             '🧂',
   'Bebidas':             '🥤',
@@ -19,6 +20,7 @@ const CATEGORY_ICONS = {
 }
 
 const CATEGORY_COLORS = {
+  'Mis favoritos':       '#E53E3E',
   'Almacen':             '#5B8C5A',
   'Almacén':             '#5B8C5A',
   'Bebidas':             '#2E85C8',
@@ -304,7 +306,7 @@ function PromoCard({ promo, listaPrecio, cartItems, onAdd, onUpdate }) {
 }
 
 // ─── ProductCard ──────────────────────────────────────────────────────────────
-function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
+function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate, isFavorito = false, onToggleFav }) {
   const [selectedVariant, setSelectedVariant] = useState(() => {
     const variants = product.variantes_producto ?? []
     // Start with first non-agotado variant; fall back to first variant
@@ -412,6 +414,21 @@ function ProductCard({ product, listaPrecio, cartItems, onAdd, onUpdate }) {
           >
             {CATEGORY_ICONS[product.categorias?.nombre] ?? '📦'}
           </div>
+        )}
+        {/* Favorite button */}
+        {onToggleFav && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onToggleFav(product.id) }}
+            aria-label={isFavorito ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            className="absolute top-1.5 right-1.5 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm"
+          >
+            <Heart
+              size={12}
+              className={isFavorito ? 'text-red-500' : 'text-muted-foreground'}
+              fill={isFavorito ? 'currentColor' : 'none'}
+            />
+          </button>
         )}
       </div>
 
@@ -525,7 +542,11 @@ export default function Catalog() {
   const [search, setSearch]                 = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
   const [listaPrecio, setListaPrecio]       = useState('minorista')
-  const { items, addItem, updateQty }       = useCart()
+  const { items, addItem, updateQty }           = useCart()
+  const [clienteId, setClienteId]               = useState(null)
+  const [favoritos, setFavoritos]               = useState(null)   // null=cargando, Set=listo
+  const [togglingFav, setTogglingFav]           = useState(new Set())
+  const [showPushBanner, setShowPushBanner]     = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -543,13 +564,26 @@ export default function Catalog() {
           .order('nombre'),
         supabase
           .from('clientes')
-          .select('lista_precios')
+          .select('id, lista_precios')
           .eq('user_id', user.id)
           .single(),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
       if (cliente?.lista_precios) setListaPrecio(cliente.lista_precios)
+      if (cliente?.id) setClienteId(cliente.id)
+
+      // Load favorites (uses cliente.id)
+      let favSet = new Set()
+      if (cliente?.id) {
+        const { data: favs } = await supabase
+          .from('cliente_favoritos')
+          .select('producto_id')
+          .eq('cliente_id', cliente.id)
+        favSet = new Set(favs?.map(f => f.producto_id) ?? [])
+      }
+      setFavoritos(favSet)
+      if (favSet.size > 0) setActiveCategory('Mis favoritos')
 
       // Step 2: load promos separately (two-step to avoid FK-join cache issues)
       const { data: promoRows } = await supabase
@@ -569,28 +603,114 @@ export default function Catalog() {
       }
 
       setLoading(false)
+
+      // Non-blocking: verificar si mostrar banner de push (no bloquea la carga)
+      if (cliente?.id && 'serviceWorker' in navigator && 'PushManager' in window) {
+        ;(async () => {
+          try {
+            const dismissedUntil = localStorage.getItem('ads_push_dismissed_until')
+            if (dismissedUntil && Date.now() < parseInt(dismissedUntil)) return
+            if (Notification.permission === 'denied') return
+            const reg = await navigator.serviceWorker.ready
+            const sub = await reg.pushManager.getSubscription()
+            if (!sub) setShowPushBanner(true)
+          } catch {}
+        })()
+      }
     }
     load()
   }, [user.id])
+
+  // ─── Favoritos ─────────────────────────────────────────────────────────────
+  async function toggleFavorite(productId) {
+    if (!clienteId || togglingFav.has(productId)) return
+    setTogglingFav(prev => { const n = new Set(prev); n.add(productId); return n })
+    const isFav = favoritos?.has(productId)
+    // Optimistic update
+    setFavoritos(prev => {
+      if (!prev) return prev
+      const n = new Set(prev)
+      isFav ? n.delete(productId) : n.add(productId)
+      return n
+    })
+    try {
+      if (isFav) {
+        await supabase.from('cliente_favoritos').delete()
+          .eq('cliente_id', clienteId).eq('producto_id', productId)
+      } else {
+        await supabase.from('cliente_favoritos')
+          .insert({ cliente_id: clienteId, producto_id: productId })
+      }
+    } catch {
+      // Revert optimistic update on error
+      setFavoritos(prev => {
+        if (!prev) return prev
+        const n = new Set(prev)
+        isFav ? n.add(productId) : n.delete(productId)
+        return n
+      })
+    } finally {
+      setTogglingFav(prev => { const n = new Set(prev); n.delete(productId); return n })
+    }
+  }
+
+  // ─── Push notifications ─────────────────────────────────────────────────────
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  }
+
+  async function handleActivatePush() {
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') { setShowPushBanner(false); return }
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+      if (!vapidKey) { console.warn('VITE_VAPID_PUBLIC_KEY no configurada'); setShowPushBanner(false); return }
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+      await supabase.from('push_subscriptions').insert({
+        cliente_id:   clienteId,
+        subscription: JSON.parse(JSON.stringify(sub)),
+      })
+      setShowPushBanner(false)
+    } catch (err) {
+      console.warn('Push subscription failed:', err)
+      setShowPushBanner(false)
+    }
+  }
+
+  function handleDismissPush() {
+    // Ocultar el banner por 7 días
+    localStorage.setItem('ads_push_dismissed_until', String(Date.now() + 7 * 24 * 60 * 60 * 1000))
+    setShowPushBanner(false)
+  }
 
   const filtered = useMemo(() => {
     return products.filter(p => {
       // Ocultar productos completamente agotados
       if ((p.variantes_producto?.length ?? 0) > 0) {
-        // Con variantes: ocultar solo si TODAS las variantes están agotadas
-        const allAgotado = p.variantes_producto.every(v => v.stock_activo && v.stock_cantidad === 0)
-        if (allAgotado) return false
+        if (p.variantes_producto.every(v => v.stock_activo && v.stock_cantidad === 0)) return false
       } else {
-        // Sin variantes: ocultar si el stock del producto es 0
         if (p.stock_activo && p.stock_cantidad === 0) return false
       }
-      const matchCat    = activeCategory === 'Todos' || p.categorias?.nombre === activeCategory
-      const matchSearch = !search ||
-        p.nombre.toLowerCase().includes(search.toLowerCase()) ||
-        p.codigo_interno?.toLowerCase().includes(search.toLowerCase())
-      return matchCat && matchSearch
+      // Filtro de categoría (incluye "Mis favoritos")
+      if (activeCategory === 'Mis favoritos') {
+        if (!favoritos?.has(p.id)) return false
+      } else if (activeCategory !== 'Todos') {
+        if (p.categorias?.nombre !== activeCategory) return false
+      }
+      // Búsqueda
+      if (search) {
+        const q = search.toLowerCase()
+        if (!p.nombre.toLowerCase().includes(q) && !p.codigo_interno?.toLowerCase().includes(q)) return false
+      }
+      return true
     })
-  }, [products, activeCategory, search])
+  }, [products, activeCategory, search, favoritos])
 
   // Only show promos targeted at the client's price list; hide agotado
   const visiblePromos = useMemo(() =>
@@ -641,7 +761,7 @@ export default function Catalog() {
       {/* Category tabs — sticky below search */}
       <div className="sticky top-[calc(3.5rem+52px)] z-[80] bg-cream border-b border-border">
         <div className="flex gap-1.5 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-w-[600px] mx-auto">
-          {['Todos', ...categories.map(c => c.nombre)].map(cat => {
+          {['Todos', ...(favoritos?.size > 0 ? ['Mis favoritos'] : []), ...categories.map(c => c.nombre)].map(cat => {
             const isActive = activeCategory === cat
             const color    = CATEGORY_COLORS[cat]
             return (
@@ -685,13 +805,47 @@ export default function Catalog() {
         </div>
       )}
 
+      {/* Push notification banner */}
+      {showPushBanner && (
+        <div className="max-w-[600px] mx-auto px-4 pt-3">
+          <div className="bg-negro text-white rounded-2xl px-4 py-3.5 flex items-start gap-3">
+            <span className="text-xl shrink-0 mt-0.5">🔔</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-snug">
+                Activá las notificaciones para saber cuándo tu pedido está listo
+              </p>
+              <div className="flex gap-2 mt-2.5">
+                <button
+                  onClick={handleActivatePush}
+                  className="bg-amarillo text-negro px-3 py-1.5 rounded-lg text-xs font-bold"
+                >
+                  Activar
+                </button>
+                <button
+                  onClick={handleDismissPush}
+                  className="text-white/55 px-2 py-1.5 text-xs"
+                >
+                  Ahora no
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Product list */}
       <div className="max-w-[600px] mx-auto px-4 pt-4 pb-28">
         {filtered.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-5xl mb-4">🔍</div>
-            <p className="font-bold text-lg mb-1.5">Sin resultados</p>
-            <p className="text-sm text-muted-foreground">Probá con otro término o cambiá de categoría.</p>
+            <div className="text-5xl mb-4">{activeCategory === 'Mis favoritos' ? '❤️' : '🔍'}</div>
+            <p className="font-bold text-lg mb-1.5">
+              {activeCategory === 'Mis favoritos' ? 'Sin favoritos aún' : 'Sin resultados'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {activeCategory === 'Mis favoritos'
+                ? 'Tocá el corazón en cualquier producto para guardarlo acá.'
+                : 'Probá con otro término o cambiá de categoría.'}
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -703,6 +857,8 @@ export default function Catalog() {
                 cartItems={items}
                 onAdd={addItem}
                 onUpdate={updateQty}
+                isFavorito={favoritos?.has(product.id) ?? false}
+                onToggleFav={toggleFavorite}
               />
             ))}
           </div>

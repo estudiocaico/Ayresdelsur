@@ -6,7 +6,7 @@ import { useCart } from '../../hooks/useCart'
 import ClientNavbar from '../../components/ClientNavbar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, ChevronDown, RefreshCw, Loader2, Package, Layers } from 'lucide-react'
+import { ArrowLeft, ChevronDown, RefreshCw, Loader2, Package, Layers, ShoppingCart } from 'lucide-react'
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -48,8 +48,8 @@ export default function MyOrders() {
           vendedores(nombre),
           items_prepedido(
             id, cantidad, precio_unitario, presentacion,
-            productos(id, nombre, descripcion, unidad, imagen_url),
-            variantes_producto(id, valor)
+            productos(id, nombre, descripcion, unidad, imagen_url, activo, stock_activo, stock_cantidad),
+            variantes_producto(id, valor, stock_activo, stock_cantidad)
           )
         `)
         .eq('cliente_id', cliente.id)
@@ -70,6 +70,25 @@ export default function MyOrders() {
     }
     setConfirmCancel(null)
     setCancelling(null)
+  }
+
+  function handleAddItemToCart(item) {
+    if (!item.productos) return
+    const presentacion = item.presentacion ?? 'unidad'
+    const varVal    = item.variantes_producto?.valor ?? ''
+    const presLabel = presentacion !== 'unidad'
+      ? presentacion.charAt(0).toUpperCase() + presentacion.slice(1)
+      : ''
+    const label = [varVal, presLabel].filter(Boolean).join(' · ')
+    addItem(
+      { id: item.productos.id, nombre: item.productos.nombre, descripcion: item.productos.descripcion,
+        precio: item.precio_unitario, unidad: item.productos.unidad, imagen_url: item.productos.imagen_url },
+      item.cantidad,
+      item.variantes_producto?.id ?? null,
+      label,
+      item.precio_unitario,
+      presentacion,
+    )
   }
 
   function handleRepeat(order) {
@@ -167,35 +186,56 @@ export default function MyOrders() {
                   {/* Detail */}
                   {isOpen && (
                     <div className="px-4 border-t border-cream-dark animate-detail-open">
-                      {order.items_prepedido.map(item => (
-                        <div key={item.id} className="flex justify-between items-start py-2.5 border-b border-cream-dark last:border-none text-sm gap-2.5">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold truncate">{item.productos?.nombre}</div>
-                            {item.variantes_producto?.valor && (
-                              <div className="text-[0.73rem] text-muted-foreground mt-0.5">{item.variantes_producto.valor}</div>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                            {item.presentacion && item.presentacion !== 'unidad' && (
-                              <span className={`inline-flex items-center gap-0.5 text-[0.58rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
-                                item.presentacion === 'pack'
-                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                                  : 'bg-green-100 text-green-800 border-green-200'
-                              }`}>
-                                {item.presentacion === 'pack'
-                                  ? <><Package size={10} className="inline mr-0.5" />Pack</>
-                                  : <><Layers   size={10} className="inline mr-0.5" />Pallet</>}
-                              </span>
-                            )}
-                            <div className="text-muted-foreground text-xs">
-                              {item.cantidad} {item.presentacion && item.presentacion !== 'unidad'
-                                ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1)
-                                : (item.productos?.unidad ?? 'unidad')}
+                      {order.items_prepedido.map(item => {
+                        const isUnavailable = !item.productos?.activo
+                        const isOutOfStock  = item.variantes_producto?.id
+                          ? (item.variantes_producto?.stock_activo && item.variantes_producto?.stock_cantidad === 0)
+                          : (item.productos?.stock_activo && item.productos?.stock_cantidad === 0)
+                        return (
+                          <div key={item.id} className="flex justify-between items-start py-2.5 border-b border-cream-dark last:border-none text-sm gap-2.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold truncate">{item.productos?.nombre}</div>
+                              {item.variantes_producto?.valor && (
+                                <div className="text-[0.73rem] text-muted-foreground mt-0.5">{item.variantes_producto.valor}</div>
+                              )}
                             </div>
-                            <div className="font-display font-bold text-amarillo text-sm">{formatPrice(item.precio_unitario * item.cantidad)}</div>
-                          </div>
-                        </div>
-                      ))}
+                            <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                              {item.presentacion && item.presentacion !== 'unidad' && (
+                                <span className={`inline-flex items-center gap-0.5 text-[0.58rem] font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                  item.presentacion === 'pack'
+                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                    : 'bg-green-100 text-green-800 border-green-200'
+                                }`}>
+                                  {item.presentacion === 'pack'
+                                    ? <><Package size={10} className="inline mr-0.5" />Pack</>
+                                    : <><Layers   size={10} className="inline mr-0.5" />Pallet</>}
+                                </span>
+                              )}
+                              <div className="text-muted-foreground text-xs">
+                                {item.cantidad} {item.presentacion && item.presentacion !== 'unidad'
+                                  ? item.presentacion.charAt(0).toUpperCase() + item.presentacion.slice(1)
+                                  : (item.productos?.unidad ?? 'unidad')}
+                              </div>
+                              <div className="font-display font-bold text-amarillo text-sm">{formatPrice(item.precio_unitario * item.cantidad)}</div>
+                              <button
+                                type="button"
+                                disabled={isUnavailable || isOutOfStock}
+                                onClick={() => handleAddItemToCart(item)}
+                                title={isUnavailable ? 'Producto no disponible' : isOutOfStock ? 'Sin stock' : 'Agregar al carrito'}
+                                className={cn(
+                                  'mt-1 flex items-center gap-1 text-[0.62rem] font-bold px-2 py-0.5 rounded-full border transition-colors',
+                                    isUnavailable || isOutOfStock
+                                      ? 'text-muted-foreground border-border opacity-40 cursor-not-allowed'
+                                      : 'text-negro border-negro hover:bg-negro hover:text-white'
+                                  )}
+                                >
+                                  <ShoppingCart size={9} />
+                                  {isUnavailable ? 'No disponible' : isOutOfStock ? 'Sin stock' : 'Agregar'}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
 
                       <div className="flex flex-col gap-2 my-3">
                         {order.estado !== 'cancelado' && (
