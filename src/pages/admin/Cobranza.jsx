@@ -17,20 +17,32 @@ function formatFecha(isoStr) {
 // ── Tab: Deuda por cliente ────────────────────────────────────────────────────
 function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
   const [expandedClient, setExpandedClient] = useState(null)
-  const [pagoForm, setPagoForm]             = useState(null) // { id, monto, nota, rect }
+  const [pagoForm, setPagoForm]             = useState(null)
   const [saving, setSaving]                 = useState(false)
+  const [search, setSearch]                 = useState('')
 
   // Group by client
-  const grupos = Object.values(
+  const todosGrupos = Object.values(
     (deudaData ?? []).reduce((acc, p) => {
       const cid = p.clientes?.id ?? '__unknown__'
       if (!acc[cid]) acc[cid] = { cliente: p.clientes, pedidos: [], total: 0 }
       acc[cid].pedidos.push(p)
-      // Usar saldo restante, no el total original
       acc[cid].total += Math.max(0, (p.total ?? 0) - (p.monto_pagado ?? 0))
       return acc
     }, {})
   ).sort((a, b) => b.total - a.total)
+
+  // Filtrar por búsqueda
+  const q = search.trim().toLowerCase()
+  const grupos = q
+    ? todosGrupos.filter(({ cliente }) =>
+        (cliente?.nombre_negocio ?? '').toLowerCase().includes(q) ||
+        (cliente?.email          ?? '').toLowerCase().includes(q) ||
+        (cliente?.cuit           ?? '').toLowerCase().includes(q) ||
+        (cliente?.telefono       ?? '').toLowerCase().includes(q) ||
+        (cliente?.direccion      ?? '').toLowerCase().includes(q)
+      )
+    : todosGrupos
 
   const totalGeneral  = grupos.reduce((s, g) => s + g.total, 0)
   const totalClientes = grupos.length
@@ -79,6 +91,16 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
 
   return (
     <>
+      {/* Buscador */}
+      <div className="mb-5">
+        <Input
+          className="max-w-[300px] h-9 text-sm"
+          placeholder="Buscar por cliente, CUIT, email, teléfono..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setExpandedClient(null) }}
+        />
+      </div>
+
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
@@ -97,6 +119,12 @@ function TabDeuda({ deudaData, setDeudaData, setHistorialData }) {
 
       {/* Lista de clientes */}
       <div className="flex flex-col gap-3">
+        {grupos.length === 0 && (
+          <div className="text-center py-12">
+            <p className="font-bold text-negro mb-1">Sin resultados</p>
+            <p className="text-sm text-muted-foreground">Ningún cliente coincide con "{search}".</p>
+          </div>
+        )}
         {grupos.map(({ cliente, pedidos, total }) => {
           const cid      = cliente?.id ?? '__unknown__'
           const isOpen   = expandedClient === cid
@@ -346,7 +374,7 @@ export default function AdminCobranza() {
     const [deuda, historial] = await Promise.all([
       supabase
         .from('prepedidos')
-        .select('id, numero_referencia, total, nota_pago, created_at, clientes(id, nombre_negocio, direccion, telefono)')
+        .select('id, numero_referencia, total, nota_pago, monto_pagado, created_at, clientes(id, nombre_negocio, email, cuit, direccion, telefono)')
         .eq('estado', 'cerrado')
         .eq('estado_pago', 'a_cobrar')
         .order('created_at', { ascending: false }),
