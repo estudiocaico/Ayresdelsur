@@ -5,7 +5,7 @@ import AdminLayout from '../../components/AdminLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table'
-import { Loader2, ArrowLeft, Printer, Check, Save } from 'lucide-react'
+import { Loader2, ArrowLeft, Printer, Check, Save, MapPin, Phone, Mail, UserCircle, Calendar } from 'lucide-react'
 
 const ESTADOS = ['pendiente', 'revisado', 'cerrado', 'cancelado']
 
@@ -64,7 +64,7 @@ export default function AdminOrderDetail() {
                    whatsapp_callmebot_apikey, whatsapp_notificaciones),
           vendedores(nombre),
           items_prepedido(
-            id, cantidad, precio_unitario, subtotal, presentacion,
+            id, cantidad, precio_unitario, subtotal, presentacion, promo_label, precio_base,
             productos(nombre, codigo_interno, descripcion, unidad),
             variantes_producto(valor)
           )
@@ -152,7 +152,7 @@ export default function AdminOrderDetail() {
         </Button>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap" title="Al guardar con fecha nueva, el cliente recibe un WhatsApp automático">📅 Visita:</span>
+          <span className="text-sm text-muted-foreground whitespace-nowrap flex items-center gap-1" title="Al guardar con fecha nueva, el cliente recibe un WhatsApp automático"><Calendar size={13} /> Visita:</span>
           <input
             type="date"
             value={fechaVisita}
@@ -201,15 +201,33 @@ export default function AdminOrderDetail() {
               </div>
               <div>
                 <p className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground mb-1">Contacto</p>
-                {cliente?.direccion && <div className="text-sm">📍 {cliente.direccion}</div>}
-                {cliente?.telefono  && <div className="text-sm">📞 {cliente.telefono}</div>}
-                {cliente?.email     && <div className="text-sm">✉️ {cliente.email}</div>}
-                {pedido.vendedores?.nombre && <div className="text-sm mt-1">🧑‍💼 Vendedor: <strong>{pedido.vendedores.nombre}</strong></div>}
+                {cliente?.direccion && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin size={12} className="shrink-0" /> {cliente.direccion}
+                  </div>
+                )}
+                {cliente?.telefono && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Phone size={12} className="shrink-0 text-muted-foreground" /> {cliente.telefono}
+                  </div>
+                )}
+                {cliente?.email && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail size={12} className="shrink-0" /> {cliente.email}
+                  </div>
+                )}
+                {pedido.vendedores?.nombre && (
+                  <div className="flex items-center gap-1.5 text-sm mt-1">
+                    <UserCircle size={12} className="shrink-0 text-muted-foreground" />
+                    Vendedor: <strong>{pedido.vendedores.nombre}</strong>
+                  </div>
+                )}
               </div>
             </div>
             {pedido.fecha_visita && (
-              <div className="mt-3 text-sm font-bold text-green-700">
-                📅 Visita programada: {new Date(pedido.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              <div className="mt-3 flex items-center gap-1.5 text-sm font-bold text-green-700">
+                <Calendar size={13} className="shrink-0" />
+                Visita programada: {new Date(pedido.fecha_visita + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
               </div>
             )}
             <div className="mt-3">
@@ -225,7 +243,7 @@ export default function AdminOrderDetail() {
           <Table>
             <TableHeader>
               <TableRow className="bg-negro hover:bg-negro">
-                {['Código','Producto','Variante','Unidad','Cant.','Precio Unit.','Subtotal'].map((h,i) => (
+                {['Código','Producto / Promo','Variante','Unidad','Cant.','Precio Unit.','Subtotal'].map((h,i) => (
                   <TableHead key={h} className={`text-white text-[0.7rem] uppercase tracking-wide ${i >= 4 ? 'text-right' : ''}`}>{h}</TableHead>
                 ))}
               </TableRow>
@@ -236,7 +254,14 @@ export default function AdminOrderDetail() {
                   <TableCell className="text-xs text-muted-foreground">{item.productos?.codigo_interno ?? '—'}</TableCell>
                   <TableCell>
                     <div className="font-semibold text-sm">{item.productos?.nombre}</div>
-                    {item.productos?.descripcion && <div className="text-[0.72rem] text-muted-foreground">{item.productos.descripcion}</div>}
+                    {item.productos?.descripcion && (
+                      <div className="text-[0.72rem] text-muted-foreground">{item.productos.descripcion}</div>
+                    )}
+                    {item.promo_label && (
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[0.62rem] font-bold uppercase tracking-wide bg-amarillo/15 text-amarillo border border-amarillo/30">
+                        PROMO {item.promo_label}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{item.variantes_producto?.valor ?? '—'}</TableCell>
                   <TableCell className="text-sm">
@@ -245,7 +270,12 @@ export default function AdminOrderDetail() {
                       : (item.productos?.unidad ?? 'unidad')}
                   </TableCell>
                   <TableCell className="text-right font-bold">{item.cantidad}</TableCell>
-                  <TableCell className="text-right text-sm">{formatPrice(item.precio_unitario)}</TableCell>
+                  <TableCell className="text-right text-sm">
+                    {item.precio_base != null && (
+                      <div className="text-[0.7rem] text-muted-foreground line-through">{formatPrice(item.precio_base)}</div>
+                    )}
+                    {formatPrice(item.precio_unitario)}
+                  </TableCell>
                   <TableCell className="text-right font-bold">{formatPrice(item.subtotal)}</TableCell>
                 </TableRow>
               ))}

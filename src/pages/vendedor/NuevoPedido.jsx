@@ -801,6 +801,8 @@ function Step3({ cliente, cart, setCart, vendedor, onBack, onSuccess }) {
             precio_unitario: subtotal / i.qty,   // precio promedio efectivo
             subtotal,
             presentacion:    i.presentacion,
+            promo_label:     i.promoBadgeLabel ?? null,
+            precio_base:     i.promoType ? i.basePrice : null,
           }
         })
       )
