@@ -536,7 +536,7 @@ export default function AdminOrders() {
                             rect,
                           })
                         }}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[0.68rem] font-bold uppercase tracking-wide border transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[0.68rem] font-bold uppercase tracking-wide border transition-colors cursor-pointer whitespace-nowrap ${
                           p.estado_pago === 'pagado'
                             ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
                             : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
